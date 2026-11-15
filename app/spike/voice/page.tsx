@@ -5,9 +5,8 @@
 // CPU-hungry, so this measures the free alternative: the listener's own device.
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
-
-const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { WorkerReply, WorkerRequest } from "./worker";
 
 const VOICES = [
   { id: "af_heart", label: "Heart (American, female)" },
@@ -16,8 +15,9 @@ const VOICES = [
 type VoiceId = (typeof VOICES)[number]["id"];
 
 const ENGINES = [
-  { id: "wasm", label: "Standard (smaller download)" },
-  { id: "webgpu", label: "Graphics chip (bigger download, may be faster)" },
+  { id: "wasm-1", label: "Standard, 1 thread (slowest, most reliable)", device: "wasm", threads: 1 },
+  { id: "wasm-4", label: "Standard, 4 threads", device: "wasm", threads: 4 },
+  { id: "webgpu", label: "Graphics chip (bigger download)", device: "webgpu", threads: 1 },
 ] as const;
 type EngineId = (typeof ENGINES)[number]["id"];
 
@@ -36,13 +36,6 @@ const SAMPLE =
 
 // Kokoro cuts off long input, so it is always fed one sentence at a time.
 const SENTENCES = SAMPLE.match(/[^.!?]+[.!?]+/g)?.map((sentence) => sentence.trim()) ?? [SAMPLE];
-
-type Speaker = {
-  generate: (
-    text: string,
-    options: { voice: VoiceId },
-  ) => Promise<{ audio: Float32Array; sampling_rate: number }>;
-};
 
 function toWav(parts: Float32Array[], sampleRate: number): Blob {
   const length = parts.reduce((sum, part) => sum + part.length, 0);
@@ -76,17 +69,21 @@ function toWav(parts: Float32Array[], sampleRate: number): Blob {
 }
 
 export default function VoiceTest() {
-  const speaker = useRef<Speaker | null>(null);
+  const worker = useRef<Worker | null>(null);
   const loadedEngine = useRef<EngineId | null>(null);
   const startedAt = useRef(0);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const queue = useRef<string[]>([]);
   const playing = useRef(false);
+  const waitingSince = useRef(0);
+  const parts = useRef<Float32Array[]>([]);
+  const totals = useRef({ render: 0, audio: 0, sampleRate: 24000 });
 
-  const [engine, setEngine] = useState<EngineId>("wasm");
+  const [engine, setEngine] = useState<EngineId>("wasm-1");
   const [voice, setVoice] = useState<VoiceId>("af_heart");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
+  const [waited, setWaited] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [lines, setLines] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -107,13 +104,85 @@ export default function VoiceTest() {
     }
     playing.current = true;
     player.src = next;
-    void player.play().catch(() => {
+    player.play().catch((error: Error) => {
       playing.current = false;
+      log(`PLAYBACK BLOCKED: ${error.name}. Use the player below instead.`);
     });
-  }, []);
+  }, [log]);
 
-  const run = useCallback(async () => {
+  // A visible clock, so a long silence is clearly "still working" and not a crash.
+  useEffect(() => {
+    if (!busy) return;
+    const timer = window.setInterval(() => {
+      setWaited(Math.round((performance.now() - waitingSince.current) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
+
+  const send = (request: WorkerRequest) => worker.current?.postMessage(request);
+
+  const startRender = useCallback(() => {
+    parts.current = [];
+    totals.current = { render: 0, audio: 0, sampleRate: 24000 };
+    log(`RENDERING ${SENTENCES.length} sentences, voice = ${voice}`);
+    send({ type: "render", sentences: SENTENCES, voice });
+  }, [log, voice]);
+
+  const handleReply = useCallback(
+    (reply: WorkerReply) => {
+      waitingSince.current = performance.now();
+      if (reply.type === "log") log(reply.message);
+      if (reply.type === "progress") setProgress(reply.message);
+      if (reply.type === "ready") {
+        log(`MODEL READY in ${reply.seconds.toFixed(1)}s`);
+        startRender();
+      }
+      if (reply.type === "sentence") {
+        const audioSeconds = reply.audio.length / reply.sampleRate;
+        totals.current.render += reply.seconds;
+        totals.current.audio += audioSeconds;
+        totals.current.sampleRate = reply.sampleRate;
+        parts.current.push(reply.audio);
+        if (reply.index === 0) log(`FIRST SENTENCE ready after ${reply.seconds.toFixed(1)}s`);
+        log(`  ${reply.index + 1}: ${audioSeconds.toFixed(1)}s of audio in ${reply.seconds.toFixed(1)}s`);
+        queue.current.push(URL.createObjectURL(toWav([reply.audio], reply.sampleRate)));
+        if (!playing.current) playNext();
+      }
+      if (reply.type === "done") {
+        const { render, audio, sampleRate } = totals.current;
+        log(
+          `DONE: ${audio.toFixed(1)}s of audio in ${render.toFixed(1)}s ` +
+            `= ${(audio / render).toFixed(2)}x real time (above 1 is faster than listening)`,
+        );
+        setAudioUrl((previous) => {
+          if (previous) URL.revokeObjectURL(previous);
+          return URL.createObjectURL(toWav(parts.current, sampleRate));
+        });
+        setProgress("");
+        setBusy(false);
+      }
+      if (reply.type === "error") {
+        log(`FAILED: ${reply.message}`);
+        setProgress("");
+        setBusy(false);
+      }
+    },
+    [log, playNext, startRender],
+  );
+
+  // The worker outlives re-renders, so route its messages through a ref that
+  // always points at the latest handler.
+  const latestHandler = useRef(handleReply);
+  useEffect(() => {
+    latestHandler.current = handleReply;
+  }, [handleReply]);
+
+  const run = useCallback(() => {
     setBusy(true);
+    setWaited(0);
+    waitingSince.current = performance.now();
+    queue.current = [];
+
     // Unlock the player during this tap so sentences can start by themselves later.
     const player = playerRef.current;
     if (player) {
@@ -126,71 +195,37 @@ export default function VoiceTest() {
           player.muted = false;
         });
     }
-    queue.current = [];
-    try {
-      if (!speaker.current || loadedEngine.current !== engine) {
-        log(`LOADING model, engine = ${engine}`);
-        const began = performance.now();
-        const { KokoroTTS } = await import("kokoro-js");
-        const { env } = await import("@huggingface/transformers");
-        const threads = self.crossOriginIsolated ? Math.min(navigator.hardwareConcurrency || 2, 4) : 1;
-        const wasm = (env.backends.onnx as { wasm?: { numThreads?: number } }).wasm;
-        if (wasm) wasm.numThreads = threads;
-        log(`CPU threads = ${threads} (isolated page: ${self.crossOriginIsolated})`);
-        speaker.current = (await KokoroTTS.from_pretrained(MODEL_ID, {
-          dtype: engine === "webgpu" ? "fp32" : "q8",
-          device: engine,
-          progress_callback: (info) => {
-            if (info.status === "progress" && info.file.endsWith(".onnx")) {
-              setProgress(`Downloading voice model: ${Math.round(info.progress)}%`);
-            }
-          },
-        })) as unknown as Speaker;
-        loadedEngine.current = engine;
-        setProgress("");
-        log(`MODEL READY in ${((performance.now() - began) / 1000).toFixed(1)}s`);
-      }
 
-      log(`RENDERING ${SENTENCES.length} sentences, voice = ${voice}`);
-      const parts: Float32Array[] = [];
-      let sampleRate = 24000;
-      let renderSeconds = 0;
-      let audioSeconds = 0;
-
-      for (let i = 0; i < SENTENCES.length; i++) {
-        setProgress(`Rendering sentence ${i + 1} of ${SENTENCES.length}. The screen may freeze while it works.`);
-        // Let the screen update between sentences.
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        const began = performance.now();
-        const result = await speaker.current.generate(SENTENCES[i], { voice });
-        const took = (performance.now() - began) / 1000;
-        const seconds = result.audio.length / result.sampling_rate;
-        sampleRate = result.sampling_rate;
-        parts.push(result.audio);
-        renderSeconds += took;
-        audioSeconds += seconds;
-        if (i === 0) log(`FIRST SENTENCE ready after ${took.toFixed(1)}s`);
-        queue.current.push(URL.createObjectURL(toWav([result.audio], result.sampling_rate)));
-        if (!playing.current) playNext();
-        log(`  ${i + 1}: ${seconds.toFixed(1)}s of audio in ${took.toFixed(1)}s`);
-      }
-
-      const speed = audioSeconds / renderSeconds;
-      log(
-        `DONE: ${audioSeconds.toFixed(1)}s of audio in ${renderSeconds.toFixed(1)}s ` +
-          `= ${speed.toFixed(2)}x real time (above 1 is faster than listening)`,
+    const choice = ENGINES.find((item) => item.id === engine) ?? ENGINES[0];
+    if (!worker.current || loadedEngine.current !== engine) {
+      worker.current?.terminate();
+      const created = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+      created.addEventListener("message", (event: MessageEvent<WorkerReply>) =>
+        latestHandler.current(event.data),
       );
-      setAudioUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return URL.createObjectURL(toWav(parts, sampleRate));
+      created.addEventListener("error", (event) => {
+        log(`WORKER CRASHED: ${event.message || "no details given"}`);
+        setProgress("");
+        setBusy(false);
       });
-    } catch (error) {
-      log(`FAILED: ${(error as Error).name}: ${(error as Error).message}`);
-    } finally {
-      setProgress("");
-      setBusy(false);
+      worker.current = created;
+      loadedEngine.current = engine;
+      const threads = self.crossOriginIsolated ? choice.threads : 1;
+      log(`LOADING model: ${choice.label}`);
+      send({ type: "load", device: choice.device, threads });
+    } else {
+      startRender();
     }
-  }, [engine, log, playNext, voice]);
+  }, [engine, log, startRender]);
+
+  const stop = () => {
+    worker.current?.terminate();
+    worker.current = null;
+    loadedEngine.current = null;
+    log(`STOPPED by you after waiting ${waited}s on the current step`);
+    setProgress("");
+    setBusy(false);
+  };
 
   const copyLog = async () => {
     const text = ["Impartly voice test", navigator.userAgent, "", ...lines].join("\n");
@@ -204,8 +239,17 @@ export default function VoiceTest() {
   };
 
   const light = { background: "#faf9f5", color: "#1f1e1d" } as const;
-  const choice = { display: "flex", alignItems: "center", gap: 10, padding: "6px 0" } as const;
+  const choiceRow = { display: "flex", alignItems: "center", gap: 10, padding: "6px 0" } as const;
   const box = { border: "1px solid #c9c6bc", borderRadius: 12, padding: 12, margin: "0 0 12px" } as const;
+  const bigButton = {
+    width: "100%",
+    padding: "18px 16px",
+    fontSize: 18,
+    fontWeight: 600,
+    borderRadius: 14,
+    border: "1px solid #1f1e1d",
+    marginBottom: 12,
+  } as const;
 
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 48px" }}>
@@ -215,10 +259,10 @@ export default function VoiceTest() {
         the first run downloads the voice model. Keep the screen on while it works.
       </p>
 
-      <fieldset style={box}>
+      <fieldset style={box} disabled={busy}>
         <legend style={{ fontWeight: 600, padding: "0 6px" }}>Voice</legend>
         {VOICES.map((option) => (
-          <label key={option.id} style={choice}>
+          <label key={option.id} style={choiceRow}>
             <input
               type="radio"
               name="voice"
@@ -231,10 +275,10 @@ export default function VoiceTest() {
         ))}
       </fieldset>
 
-      <fieldset style={box}>
+      <fieldset style={box} disabled={busy}>
         <legend style={{ fontWeight: 600, padding: "0 6px" }}>Engine</legend>
         {ENGINES.map((option) => (
-          <label key={option.id} style={choice}>
+          <label key={option.id} style={choiceRow}>
             <input
               type="radio"
               name="engine"
@@ -247,28 +291,19 @@ export default function VoiceTest() {
         ))}
       </fieldset>
 
-      <button
-        onClick={() => void run()}
-        disabled={busy}
-        style={{
-          width: "100%",
-          padding: "18px 16px",
-          fontSize: 18,
-          fontWeight: 600,
-          borderRadius: 14,
-          border: "1px solid #1f1e1d",
-          marginBottom: 12,
-          background: "#1f1e1d",
-          color: "#faf9f5",
-          opacity: busy ? 0.6 : 1,
-        }}
-      >
-        {busy ? "Working..." : "Render the sample briefing"}
-      </button>
+      {busy ? (
+        <button onClick={stop} style={{ ...bigButton, ...light }}>
+          Stop
+        </button>
+      ) : (
+        <button onClick={run} style={{ ...bigButton, background: "#1f1e1d", color: "#faf9f5" }}>
+          Render the sample briefing
+        </button>
+      )}
 
-      {progress && (
+      {busy && (
         <div role="status" style={{ padding: "12px 14px", borderRadius: 12, marginBottom: 12, background: "#eceae3", fontWeight: 600 }}>
-          {progress}
+          {progress || "Starting"} ({waited}s on this step)
         </div>
       )}
 
@@ -283,9 +318,14 @@ export default function VoiceTest() {
 
       <h2 style={{ fontSize: 18, margin: "20px 0 8px" }}>What to test</h2>
       <ol style={{ margin: 0, paddingLeft: 22, lineHeight: 1.5 }}>
-        <li>Render with Heart on the Standard engine. Speech should start by itself once the first sentence is ready, and continue sentence by sentence. Gaps between sentences mean the phone renders slower than you listen.</li>
-        <li>Switch to Daniel and render again. The model is already loaded, so this run shows the true speed.</li>
-        <li>Optional: switch the engine to Graphics chip and render once more.</li>
+        <li>
+          Render with Heart on &quot;Standard, 1 thread&quot;. Speech should start by itself once
+          the first sentence is ready. Watch the seconds counter: if one step passes 60 seconds,
+          press Stop.
+        </li>
+        <li>Then try &quot;Standard, 4 threads&quot;. Does it render, and is it faster?</li>
+        <li>Switch to Daniel and render again to hear the second voice.</li>
+        <li>Optional: try the graphics chip engine.</li>
         <li>Copy the log and send it over, with a word on how each voice sounds.</li>
       </ol>
 
