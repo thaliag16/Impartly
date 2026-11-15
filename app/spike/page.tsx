@@ -12,7 +12,7 @@ const TESTS = [
   "Press Start. In AirPods, notes should hop between your left and right ear and sound clear.",
   "Lock the phone. Playback should continue, with Impartly shown on the lock screen.",
   "Press your AirPods to pause, then again to play. Each press should appear in the log.",
-  "Unlock, press Tap to ask, and speak for 5 seconds. Playback should resume by itself.",
+  "Unlock, press Tap to ask, wait for the rising chime, then speak for 5 seconds. Playback should resume by itself.",
   "After it resumes, listen closely: is the sound as clear and as left/right as in test 1?",
   "Press Play my recording. You should hear your own question.",
   "Tick the AirPods option, then pause from your AirPods without touching the phone. Does the mic open?",
@@ -24,6 +24,7 @@ export default function Spike() {
   const busy = useRef(false);
   const airpodsOpensMic = useRef(false);
   const startedAt = useRef<number>(0);
+  const chimeContext = useRef<AudioContext | null>(null);
 
   const [status, setStatus] = useState<Status>("idle");
   const [countdown, setCountdown] = useState(0);
@@ -36,6 +37,27 @@ export default function Spike() {
     if (!startedAt.current) startedAt.current = performance.now();
     const elapsed = ((performance.now() - startedAt.current) / 1000).toFixed(2);
     setLines((previous) => [...previous, `${elapsed.padStart(7)}s  ${message}`]);
+  }, []);
+
+  // Two short notes: rising means "speak now", falling means "done listening".
+  const chime = useCallback((rising: boolean) => {
+    const context = chimeContext.current;
+    if (!context) return Promise.resolve();
+    const notes = rising ? [660, 990] : [990, 660];
+    const now = context.currentTime;
+    notes.forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const begin = now + index * 0.11;
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, begin);
+      gain.gain.exponentialRampToValueAtTime(0.25, begin + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, begin + 0.1);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(begin);
+      oscillator.stop(begin + 0.11);
+    });
+    return new Promise<void>((resolve) => window.setTimeout(resolve, 260));
   }, []);
 
   const ask = useCallback(
@@ -82,6 +104,8 @@ export default function Spike() {
           return URL.createObjectURL(blob);
         });
 
+        void chime(false);
+
         // Give the system a moment to hand the audio route back before resuming.
         window.setTimeout(() => {
           audio.currentTime = Math.max(0, savedPosition.current - REWIND_SECONDS);
@@ -95,9 +119,13 @@ export default function Spike() {
             .finally(() => {
               busy.current = false;
             });
-        }, 400);
+        }, 600);
       });
 
+      // Chime first, then record, so the chime is not in the recording
+      // and the speaker knows the mic is live.
+      await chime(true);
+      log("CHIME: speak now");
       recorder.start();
       let remaining = RECORD_SECONDS;
       setCountdown(remaining);
@@ -110,12 +138,16 @@ export default function Spike() {
         }
       }, 1000);
     },
-    [log],
+    [chime, log],
   );
 
   const start = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+    if (!chimeContext.current) {
+      chimeContext.current = new AudioContext();
+    }
+    void chimeContext.current.resume();
     if (!audio.src) {
       audio.src = URL.createObjectURL(buildTestTrack());
       audio.loop = true;
