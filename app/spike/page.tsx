@@ -1,35 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildTestTrack } from "./tone";
+import { buildCue, buildTestTrack, CUE_LABELS, type CueSound } from "./tone";
 
 type Status = "idle" | "playing" | "paused" | "listening";
 
 const RECORD_SECONDS = 5;
 const REWIND_SECONDS = 3;
+const CUE_SOUNDS: CueSound[] = ["pop", "bell", "knock"];
 
 const TESTS = [
   "Press Start. In AirPods, notes should hop between your left and right ear and sound clear.",
-  "Lock the phone. Playback should continue, with Impartly shown on the lock screen.",
-  "Press your AirPods to pause, then again to play. Each press should appear in the log.",
-  "Unlock, press Tap to ask, wait for the rising chime, then speak for 5 seconds. Playback should resume by itself.",
-  "After it resumes, listen closely: is the sound as clear and as left/right as in test 1?",
-  "Press Play my recording. You should hear your own question.",
-  "Tick the AirPods option, then pause from your AirPods without touching the phone. Does the mic open?",
+  "Press Pause, then Play. Playback should stop and pick up where it left off.",
+  "Try the three cue sounds with their Preview buttons and keep the one you like.",
+  "Press Tap to ask, wait for the cue, then speak for 5 seconds. Did you hear the cue in your AirPods?",
+  "After it resumes, is the sound as clear and as left/right as in test 1?",
+  "Tick the AirPods option, then pause from your AirPods. Did you hear the cue before speaking?",
+  "Lock the phone and pause from your AirPods. Wait 10 seconds, unlock, and check the log: did MIC OPEN appear before or after 'page: visible'?",
 ];
 
 export default function Spike() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const startCueRef = useRef<HTMLAudioElement | null>(null);
+  const endCueRef = useRef<HTMLAudioElement | null>(null);
+  const cueUrls = useRef<string[]>([]);
   const savedPosition = useRef(0);
   const busy = useRef(false);
   const airpodsOpensMic = useRef(false);
   const startedAt = useRef<number>(0);
-  const chimeContext = useRef<AudioContext | null>(null);
 
   const [status, setStatus] = useState<Status>("idle");
   const [countdown, setCountdown] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [airpodsOption, setAirpodsOption] = useState(false);
+  const [cueSound, setCueSound] = useState<CueSound>("pop");
   const [lines, setLines] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
@@ -39,26 +43,45 @@ export default function Spike() {
     setLines((previous) => [...previous, `${elapsed.padStart(7)}s  ${message}`]);
   }, []);
 
-  // Two short notes: rising means "speak now", falling means "done listening".
-  const chime = useCallback((rising: boolean) => {
-    const context = chimeContext.current;
-    if (!context) return Promise.resolve();
-    const notes = rising ? [660, 990] : [990, 660];
-    const now = context.currentTime;
-    notes.forEach((frequency, index) => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      const begin = now + index * 0.11;
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.0001, begin);
-      gain.gain.exponentialRampToValueAtTime(0.25, begin + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.0001, begin + 0.1);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start(begin);
-      oscillator.stop(begin + 0.11);
-    });
-    return new Promise<void>((resolve) => window.setTimeout(resolve, 260));
-  }, []);
+  // Load the chosen cue into its two audio elements.
+  useEffect(() => {
+    const startCue = startCueRef.current;
+    const endCue = endCueRef.current;
+    if (!startCue || !endCue) return;
+    cueUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    const startUrl = URL.createObjectURL(buildCue(cueSound, true));
+    const endUrl = URL.createObjectURL(buildCue(cueSound, false));
+    cueUrls.current = [startUrl, endUrl];
+    startCue.src = startUrl;
+    endCue.src = endUrl;
+  }, [cueSound]);
+
+  // Plays a cue and waits for it to finish, so recording never contains the cue.
+  const playCue = useCallback(
+    (element: HTMLAudioElement | null, name: string) =>
+      new Promise<void>((resolve) => {
+        if (!element) {
+          resolve();
+          return;
+        }
+        let settled = false;
+        const finish = (outcome: string) => {
+          if (settled) return;
+          settled = true;
+          element.removeEventListener("ended", onEnded);
+          log(`CUE ${name}: ${outcome}`);
+          resolve();
+        };
+        const onEnded = () => finish("played to the end");
+        element.addEventListener("ended", onEnded);
+        element.currentTime = 0;
+        element
+          .play()
+          .catch((error: Error) => finish(`BLOCKED (${error.name})`));
+        window.setTimeout(() => finish("timed out, no 'ended' event"), 1500);
+      }),
+    [log],
+  );
 
   const ask = useCallback(
     async (trigger: string) => {
@@ -66,7 +89,7 @@ export default function Spike() {
       if (!audio || busy.current) return;
       busy.current = true;
 
-      // Rule: the mic is never open while audio is playing.
+      // Rule: no briefing audio plays while the mic is open.
       audio.pause();
       savedPosition.current = audio.currentTime;
       log(`ASK (${trigger}): paused at ${audio.currentTime.toFixed(1)}s, opening mic`);
@@ -88,7 +111,6 @@ export default function Spike() {
           `${settings.channelCount ?? "?"} ch, echo cancel ${settings.echoCancellation ?? "?"}`,
       );
       track.addEventListener("ended", () => log("MIC TRACK ENDED by the system"));
-      setStatus("listening");
 
       const chunks: Blob[] = [];
       const recorder = new MediaRecorder(stream);
@@ -104,28 +126,25 @@ export default function Spike() {
           return URL.createObjectURL(blob);
         });
 
-        void chime(false);
-
-        // Give the system a moment to hand the audio route back before resuming.
-        window.setTimeout(() => {
+        void playCue(endCueRef.current, "end").then(() => {
           audio.currentTime = Math.max(0, savedPosition.current - REWIND_SECONDS);
           audio
             .play()
             .then(() => log(`RESUMED at ${audio.currentTime.toFixed(1)}s without a tap`))
             .catch((error: Error) => {
-              log(`RESUME BLOCKED: ${error.name}. Press Start to continue.`);
+              log(`RESUME BLOCKED: ${error.name}. Press Play to continue.`);
               setStatus("paused");
             })
             .finally(() => {
               busy.current = false;
             });
-        }, 600);
+        });
       });
 
-      // Chime first, then record, so the chime is not in the recording
-      // and the speaker knows the mic is live.
-      await chime(true);
-      log("CHIME: speak now");
+      // Cue first, then record: the speaker knows the mic is live and the cue
+      // stays out of the recording.
+      await playCue(startCueRef.current, "start");
+      setStatus("listening");
       recorder.start();
       let remaining = RECORD_SECONDS;
       setCountdown(remaining);
@@ -138,19 +157,35 @@ export default function Spike() {
         }
       }, 1000);
     },
-    [chime, log],
+    [log, playCue],
   );
+
+  // iPhones only let a page start sound after a tap. Playing each cue silently
+  // during the Start tap lets them sound later without one.
+  const unlockCues = useCallback(() => {
+    [startCueRef.current, endCueRef.current].forEach((element) => {
+      if (!element) return;
+      element.muted = true;
+      element
+        .play()
+        .then(() => {
+          element.pause();
+          element.currentTime = 0;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          element.muted = false;
+        });
+    });
+  }, []);
 
   const start = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (!chimeContext.current) {
-      chimeContext.current = new AudioContext();
-    }
-    void chimeContext.current.resume();
     if (!audio.src) {
       audio.src = URL.createObjectURL(buildTestTrack());
       audio.loop = true;
+      unlockCues();
       log("Test track built in the browser (stereo, 44.1 kHz)");
     }
     try {
@@ -171,7 +206,7 @@ export default function Spike() {
         void audio.play();
       });
       navigator.mediaSession.setActionHandler("pause", () => {
-        log("HEADPHONE or LOCK SCREEN: pause");
+        log(`HEADPHONE or LOCK SCREEN: pause (page ${document.visibilityState})`);
         if (airpodsOpensMic.current) {
           void ask("headphone press");
         } else {
@@ -187,7 +222,14 @@ export default function Spike() {
     } else {
       log("This browser has no lock-screen media controls");
     }
-  }, [ask, log]);
+  }, [ask, log, unlockCues]);
+
+  const pause = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    log("SCREEN: pause button");
+    audio.pause();
+  }, [log]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -227,7 +269,13 @@ export default function Spike() {
   }, [log]);
 
   const copyLog = async () => {
-    const text = [`Impartly audio test`, navigator.userAgent, "", ...lines].join("\n");
+    const text = [
+      "Impartly audio test",
+      navigator.userAgent,
+      `Cue sound: ${CUE_LABELS[cueSound]}`,
+      "",
+      ...lines,
+    ].join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -253,6 +301,8 @@ export default function Spike() {
     border: "1px solid #1f1e1d",
     marginBottom: 12,
   } as const;
+  const light = { background: "#faf9f5", color: "#1f1e1d" } as const;
+  const dark = { background: "#1f1e1d", color: "#faf9f5" } as const;
 
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 48px" }}>
@@ -274,20 +324,56 @@ export default function Spike() {
         {statusText[status]}
       </div>
 
-      <button
-        onClick={() => void start()}
-        disabled={status === "playing" || status === "listening"}
-        style={{ ...button, background: "#1f1e1d", color: "#faf9f5" }}
-      >
-        {status === "idle" ? "Start" : "Play"}
-      </button>
+      {status === "playing" ? (
+        <button onClick={pause} style={{ ...button, ...dark }}>
+          Pause
+        </button>
+      ) : (
+        <button
+          onClick={() => void start()}
+          disabled={status === "listening"}
+          style={{ ...button, ...dark }}
+        >
+          {status === "idle" ? "Start" : "Play"}
+        </button>
+      )}
       <button
         onClick={() => void ask("screen tap")}
         disabled={status !== "playing"}
-        style={{ ...button, background: "#faf9f5", color: "#1f1e1d" }}
+        style={{ ...button, ...light }}
       >
         Tap to ask (records {RECORD_SECONDS} seconds)
       </button>
+
+      <fieldset style={{ border: "1px solid #c9c6bc", borderRadius: 12, padding: 12, margin: "4px 0 12px" }}>
+        <legend style={{ fontWeight: 600, padding: "0 6px" }}>Cue sound</legend>
+        {CUE_SOUNDS.map((sound) => (
+          <div key={sound} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+              <input
+                type="radio"
+                name="cue"
+                checked={cueSound === sound}
+                onChange={() => {
+                  setCueSound(sound);
+                  log(`Option: cue sound = ${CUE_LABELS[sound]}`);
+                }}
+                style={{ width: 20, height: 20 }}
+              />
+              <span>{CUE_LABELS[sound]}</span>
+            </label>
+            <button
+              onClick={() => {
+                const preview = new Audio(URL.createObjectURL(buildCue(sound, true)));
+                void preview.play();
+              }}
+              style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #1f1e1d", ...light }}
+            >
+              Preview
+            </button>
+          </div>
+        ))}
+      </fieldset>
 
       <label style={{ display: "flex", gap: 10, alignItems: "center", margin: "4px 0 16px" }}>
         <input
@@ -300,10 +386,12 @@ export default function Spike() {
           }}
           style={{ width: 22, height: 22 }}
         />
-        <span>Pausing from AirPods opens the mic (test 7)</span>
+        <span>Pausing from AirPods opens the mic</span>
       </label>
 
       <audio ref={audioRef} playsInline preload="auto" />
+      <audio ref={startCueRef} playsInline preload="auto" />
+      <audio ref={endCueRef} playsInline preload="auto" />
 
       {recordingUrl && (
         <div style={{ marginBottom: 16 }}>
@@ -325,7 +413,7 @@ export default function Spike() {
         <h2 style={{ fontSize: 18, margin: 0, flex: 1 }}>Log</h2>
         <button
           onClick={() => void copyLog()}
-          style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #1f1e1d", background: "#faf9f5" }}
+          style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #1f1e1d", ...light }}
         >
           {copied ? "Copied" : "Copy log"}
         </button>

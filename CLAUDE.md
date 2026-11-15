@@ -25,7 +25,7 @@ possible running cost.
 - The summarizer sits behind one provider interface. No model name or vendor
   SDK call outside that module.
 - No briefing or answer audio plays while the mic is open (web app). The one
-  exception is the short chime that marks the start and end of listening.
+  exception is the short cue sound that marks the start and end of listening.
   The iOS app is the only client allowed to listen during playback.
 - Newsletter text is untrusted. Wrap it as data in prompts. The agent gets no
   tools that write, send or delete.
