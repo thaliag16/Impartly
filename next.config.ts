@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const ONNX = "node_modules/onnxruntime-node/bin/napi-v3";
 
 const nextConfig: NextConfig = {
+  // kokoro-js imports Node's file modules even in its browser entry. In the
+  // browser they are never called, so point them at an empty module.
+  turbopack: {
+    resolveAlias: {
+      "fs/promises": { browser: "./lib/empty.ts" },
+      path: { browser: "./lib/empty.ts" },
+    },
+  },
   // The speech packages load native code and must not be bundled.
   serverExternalPackages: ["kokoro-js", "@huggingface/transformers", "onnxruntime-node", "sharp"],
   // File tracing misses files that are loaded at run time rather than imported:

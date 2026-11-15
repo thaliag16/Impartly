@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildCue, buildTestTrack, CUE_LABELS, type CueSound } from "./tone";
 
@@ -33,7 +34,7 @@ export default function Spike() {
   const [countdown, setCountdown] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [airpodsOption, setAirpodsOption] = useState(false);
-  const [cueSound, setCueSound] = useState<CueSound>("pop");
+  const [cueSound, setCueSound] = useState<CueSound>("bell");
   const [lines, setLines] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
@@ -435,6 +436,10 @@ export default function Spike() {
       >
         {lines.length ? lines.join("\n") : "Nothing yet. Press Start."}
       </pre>
+
+      <p style={{ marginTop: 20 }}>
+        <Link href="/spike/voice">Next: the voice test</Link>
+      </p>
     </main>
   );
 }
