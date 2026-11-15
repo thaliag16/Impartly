@@ -205,6 +205,8 @@ export default function VoiceTest() {
       );
       created.addEventListener("error", (event) => {
         log(`WORKER CRASHED: ${event.message || "no details given"}`);
+        worker.current = null;
+        loadedEngine.current = null;
         setProgress("");
         setBusy(false);
       });
