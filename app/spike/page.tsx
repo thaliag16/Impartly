@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildCue, buildTestTrack, CUE_LABELS, type CueSound } from "./tone";
 
@@ -438,7 +437,7 @@ export default function Spike() {
       </pre>
 
       <p style={{ marginTop: 20 }}>
-        <Link href="/spike/voice">Next: the voice test</Link>
+        <a href="/spike/voice">Next: the voice test</a>
       </p>
     </main>
   );

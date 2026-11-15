@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
   },
   // The speech packages load native code and must not be bundled.
   serverExternalPackages: ["kokoro-js", "@huggingface/transformers", "onnxruntime-node", "sharp"],
+  // The voice test runs the speech model on several CPU threads, which browsers
+  // only allow on pages that opt in to cross-origin isolation.
+  async headers() {
+    return [
+      {
+        source: "/spike/voice",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+        ],
+      },
+    ];
+  },
   // File tracing misses files that are loaded at run time rather than imported:
   // the speech runtime's shared library and Kokoro's voice files.
   outputFileTracingIncludes: {
