@@ -79,6 +79,9 @@ export default function VoiceTest() {
   const speaker = useRef<Speaker | null>(null);
   const loadedEngine = useRef<EngineId | null>(null);
   const startedAt = useRef(0);
+  const playerRef = useRef<HTMLAudioElement | null>(null);
+  const queue = useRef<string[]>([]);
+  const playing = useRef(false);
 
   const [engine, setEngine] = useState<EngineId>("wasm");
   const [voice, setVoice] = useState<VoiceId>("af_heart");
@@ -94,13 +97,46 @@ export default function VoiceTest() {
     setLines((previous) => [...previous, `${elapsed.padStart(6)}s  ${message}`]);
   }, []);
 
+  // Plays finished sentences in order, starting as soon as the first is ready.
+  const playNext = useCallback(() => {
+    const player = playerRef.current;
+    const next = queue.current.shift();
+    if (!player || !next) {
+      playing.current = false;
+      return;
+    }
+    playing.current = true;
+    player.src = next;
+    void player.play().catch(() => {
+      playing.current = false;
+    });
+  }, []);
+
   const run = useCallback(async () => {
     setBusy(true);
+    // Unlock the player during this tap so sentences can start by themselves later.
+    const player = playerRef.current;
+    if (player) {
+      player.muted = true;
+      void player
+        .play()
+        .catch(() => undefined)
+        .finally(() => {
+          player.pause();
+          player.muted = false;
+        });
+    }
+    queue.current = [];
     try {
       if (!speaker.current || loadedEngine.current !== engine) {
         log(`LOADING model, engine = ${engine}`);
         const began = performance.now();
         const { KokoroTTS } = await import("kokoro-js");
+        const { env } = await import("@huggingface/transformers");
+        const threads = self.crossOriginIsolated ? Math.min(navigator.hardwareConcurrency || 2, 4) : 1;
+        const wasm = (env.backends.onnx as { wasm?: { numThreads?: number } }).wasm;
+        if (wasm) wasm.numThreads = threads;
+        log(`CPU threads = ${threads} (isolated page: ${self.crossOriginIsolated})`);
         speaker.current = (await KokoroTTS.from_pretrained(MODEL_ID, {
           dtype: engine === "webgpu" ? "fp32" : "q8",
           device: engine,
@@ -122,9 +158,9 @@ export default function VoiceTest() {
       let audioSeconds = 0;
 
       for (let i = 0; i < SENTENCES.length; i++) {
-        setProgress(`Rendering sentence ${i + 1} of ${SENTENCES.length}`);
+        setProgress(`Rendering sentence ${i + 1} of ${SENTENCES.length}. The screen may freeze while it works.`);
         // Let the screen update between sentences.
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 50));
         const began = performance.now();
         const result = await speaker.current.generate(SENTENCES[i], { voice });
         const took = (performance.now() - began) / 1000;
@@ -134,6 +170,8 @@ export default function VoiceTest() {
         renderSeconds += took;
         audioSeconds += seconds;
         if (i === 0) log(`FIRST SENTENCE ready after ${took.toFixed(1)}s`);
+        queue.current.push(URL.createObjectURL(toWav([result.audio], result.sampling_rate)));
+        if (!playing.current) playNext();
         log(`  ${i + 1}: ${seconds.toFixed(1)}s of audio in ${took.toFixed(1)}s`);
       }
 
@@ -152,7 +190,7 @@ export default function VoiceTest() {
       setProgress("");
       setBusy(false);
     }
-  }, [engine, log, voice]);
+  }, [engine, log, playNext, voice]);
 
   const copyLog = async () => {
     const text = ["Impartly voice test", navigator.userAgent, "", ...lines].join("\n");
@@ -234,16 +272,18 @@ export default function VoiceTest() {
         </div>
       )}
 
+      <audio ref={playerRef} playsInline onEnded={playNext} />
+
       {audioUrl && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>Listen to the result</div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Listen again, start to finish</div>
           <audio src={audioUrl} controls playsInline style={{ width: "100%" }} />
         </div>
       )}
 
       <h2 style={{ fontSize: 18, margin: "20px 0 8px" }}>What to test</h2>
       <ol style={{ margin: 0, paddingLeft: 22, lineHeight: 1.5 }}>
-        <li>Render with Heart on the Standard engine, then listen. Is the whole briefing there, start to finish?</li>
+        <li>Render with Heart on the Standard engine. Speech should start by itself once the first sentence is ready, and continue sentence by sentence. Gaps between sentences mean the phone renders slower than you listen.</li>
         <li>Switch to Daniel and render again. The model is already loaded, so this run shows the true speed.</li>
         <li>Optional: switch the engine to Graphics chip and render once more.</li>
         <li>Copy the log and send it over, with a word on how each voice sounds.</li>
