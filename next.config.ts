@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
         ],
       },
+      {
+        // An isolated page may only start a worker whose script carries the
+        // same policy, so the app's own script files declare it too.
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+        ],
+      },
     ];
   },
   // File tracing misses files that are loaded at run time rather than imported:
