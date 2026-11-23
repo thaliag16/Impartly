@@ -1,12 +1,23 @@
 ## Status
-Phase: 0 | Checks: 6/7 passing (build, typecheck, lint, test, test:e2e, scan:secrets; eval:summaries deferred to Phase 1) | Summary eval: n/a | Last run: 2026-11-23
+Phase: 0 | Checks: 6/7 passing, locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; eval:summaries deferred to Phase 1) | Summary eval: n/a | Last run: 2026-11-23
 
 ## Questions for Thalia
+- The CI workflow assumed a public repo ("free for a public repo"), but the GitHub repo is currently private. On a private repo, Actions minutes count against the account's free quota (2,000 minutes a month on GitHub Free) instead of being unlimited. One run takes about 1.5 minutes and runs twice per push to a PR branch (push + pull_request), so normal use stays far inside the quota, but it is not unlimited until the repo goes public. OK as is, or should CI run on pull_request only (halves the minutes) until the repo is public?
 - [Provisionally decided by session lead, Thalia to confirm on review: yes. Done in run 2.] `test:e2e` is not set up yet. Playwright's browser downloads (cdn.playwright.dev, playwright.download.prss.microsoft.com) are blocked from the agent environment. A system Google Chrome is installed there, so the next pass can run Playwright against it (`channel: "chrome"`) locally, while CI on GitHub would download browsers normally. OK to go that way?
 - [Provisionally decided by session lead, Thalia to confirm on review: the summary eval waits for Phase 1; the Phase 0 gate counts the other six checks.] `eval:summaries` is not set up. GOAL.md section 4 says the first Phase 0 run sets up every missing check, but the eval needs a summarizer and fixture newsletters, which are Phase 1 work, and CLAUDE.md says not to build ahead. CLAUDE.md wins, so I left it for Phase 1. Should the Phase 0 gate count 5 of 7 checks (excluding the summary eval), or do you want a placeholder eval now?
-- [Provisionally decided by session lead, Thalia to confirm on review: yes, in a later pass.] There is no CI workflow yet (`.github/` does not exist), but GOAL.md says items pass "in CI". A GitHub Actions workflow is free for a public repo. OK to add one in a later pass?
+- [Done in run 3: `.github/workflows/checks.yml`, PR #12.] [Provisionally decided by session lead, Thalia to confirm on review: yes, in a later pass.] There is no CI workflow yet (`.github/` does not exist), but GOAL.md says items pass "in CI". A GitHub Actions workflow is free for a public repo. OK to add one in a later pass?
 
 ## Log
+### 2026-11-23 run 3
+- Picked: GitHub Actions CI running every check, so Phase 0 items can pass "in CI" (approved in Questions)
+- Did: added `.github/workflows/checks.yml`. Runs on every `push` and every `pull_request` with no branch filter, so stacked PRs are checked. Steps: `npm ci`, `scan:secrets`, `typecheck`, `lint`, `test`, `build`, `npx playwright install --with-deps chromium`, `test:e2e` with `CI=true` (Playwright's own Chromium, not system Chrome). Actions pinned to commit SHAs (checkout v7.0.1, setup-node v7.1.0 with Node 22 and npm cache, upload-artifact v7.0.2), `permissions: contents: read`, `persist-credentials: false`, no secrets. On failure it uploads `playwright-report/` and `test-results/` (14 days). `playwright.config.ts` now adds an HTML reporter in CI so there is a report to upload. The three actions (MIT) added to THIRD_PARTY_NOTICES.md.
+- Validation: actionlint 1.7.12 (release binary from GitHub, SHA-256 checked against the release checksums), 0 errors. (`go run` and the PyPI wrapper were not usable here: proxy.golang.org does not resolve and the PyPI package has no wheel.)
+- CI result: first run green on both events, https://github.com/thaliag16/Impartly/actions/runs/45219374739 (pull_request) and run 45219351653 (push). Logs show 0 secret findings, 24/24 unit tests, 4/4 UI tests; about 1.5 minutes per run.
+- Test-first note: this pass adds infrastructure, not a feature, so there was no new failing test; the CI run itself is the proof.
+- Checks before → after: 6/7 → 6/7 (now also passing in CI)
+- PR: #12
+- Next: block the cue Preview buttons while the mic is open (small fix plus e2e test, noted in run 2). After that, the remaining Phase 0 items (Kokoro duration test, Moonshine WER) need model files from huggingface.co, which is blocked from the agent environment; they can run in CI if CI is allowed to fetch the pinned ONNX files.
+
 ### 2026-11-23 run 2
 - Picked: set up `test:e2e` with UI tests for the Phase 0 items the spike page supports (pause button, Bell cue, mic/playback exclusion)
 - Decisions (decided by session lead, Thalia to confirm on review): Playwright runs against the system Google Chrome locally (`channel: "chrome"`) and downloads its own browser in CI; the summary eval waits for Phase 1 and the Phase 0 gate counts the other checks; a free GitHub Actions workflow is OK, in a later pass.
