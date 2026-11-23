@@ -12,16 +12,16 @@
   },
   "moonshine": {
     "repo": "onnx-community/moonshine-base-ONNX",
-    "revision": null,
-    "pinnedFrom": null,
+    "revision": "b1e9b6aae3c3c7298f10c3798393fdf38e8fbbad",
+    "pinnedFrom": "Trust on first use: pinned from the first CI fetch (GitHub Actions run 45237171761, 2026-11-23), cross-checked there against the hashes the Hugging Face API publishes. Not independently confirmed. Thalia to confirm.",
     "files": [
-      { "path": "config.json", "sha256": null },
-      { "path": "generation_config.json", "sha256": null },
-      { "path": "preprocessor_config.json", "sha256": null },
-      { "path": "tokenizer.json", "sha256": null },
-      { "path": "tokenizer_config.json", "sha256": null },
-      { "path": "onnx/encoder_model.onnx", "sha256": null },
-      { "path": "onnx/decoder_model_merged_q4.onnx", "sha256": null }
+      { "path": "config.json", "sha256": "fab7241d1e9fc6c2370c4c6dfb5da79bb54d67ed9ab6b507ac51d29d2abe01d1" },
+      { "path": "generation_config.json", "sha256": "f9b3f711b57be7def2e50a8942f64f36ee0a55fad5b84ff93a687b6c5bcc1d44" },
+      { "path": "preprocessor_config.json", "sha256": "fa43a7017ef85cd1d0fba0d9aae77c8adb16990ae6f11115631f41ec5d8aa679" },
+      { "path": "tokenizer.json", "sha256": "7b913404bdd039af4756783218af4440bc07fb7d6d8258d677e34f95b3ec416f" },
+      { "path": "tokenizer_config.json", "sha256": "edaee394565d428ea98a663ae7209cdcfeefc5585c42d7a570ff7c986df2cd15" },
+      { "path": "onnx/encoder_model.onnx", "sha256": "153e128e7abd64a74ee47f2c3f585c3171c4d46cbb368b032827934c4e01e779" },
+      { "path": "onnx/decoder_model_merged_q4.onnx", "sha256": "9f26db50c9f3b2eb1962ab93e9753f908c56367817d791032af58cbf7dba3803" }
     ]
   }
 }
