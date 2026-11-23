@@ -182,6 +182,12 @@ export default function Spike() {
   const start = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+    // Rule: no briefing audio plays while the mic is open. `busy` covers the whole
+    // ask cycle, including the moments before the Listening status shows.
+    if (busy.current) {
+      log("PLAY BLOCKED: the mic is open");
+      return;
+    }
     if (!audio.src) {
       audio.src = URL.createObjectURL(buildTestTrack());
       audio.loop = true;
@@ -203,6 +209,10 @@ export default function Spike() {
       });
       navigator.mediaSession.setActionHandler("play", () => {
         log("HEADPHONE or LOCK SCREEN: play");
+        if (busy.current) {
+          log("PLAY BLOCKED: the mic is open");
+          return;
+        }
         void audio.play();
       });
       navigator.mediaSession.setActionHandler("pause", () => {
@@ -389,9 +399,9 @@ export default function Spike() {
         <span>Pausing from AirPods opens the mic</span>
       </label>
 
-      <audio ref={audioRef} playsInline preload="auto" />
-      <audio ref={startCueRef} playsInline preload="auto" />
-      <audio ref={endCueRef} playsInline preload="auto" />
+      <audio ref={audioRef} data-testid="briefing-audio" playsInline preload="auto" />
+      <audio ref={startCueRef} data-testid="cue-start" playsInline preload="auto" />
+      <audio ref={endCueRef} data-testid="cue-end" playsInline preload="auto" />
 
       {recordingUrl && (
         <div style={{ marginBottom: 16 }}>
