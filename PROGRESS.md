@@ -81,7 +81,7 @@ Your iPhone check, "Tap-to-ask plays and records cleanly on a real iPhone":
 - New packages: `parse5` 8.1.1 (exact, MIT) with `entities` 9.0.0 (BSD-2-Clause), in THIRD_PARTY_NOTICES.md. No paid dependency.
 - Checks before → after: 6/7 → 6/7 locally (unit tests 359 → 435 with the database tests; UI tests 5/5; build, typecheck, lint, secret scan pass).
 - CI fix attempt 1 (of 3): the first CI runs (45267581661 push, 45267635393 pull_request) failed in `npm test`: "applying supabase-shim.sql failed: duplicate key value violates unique constraint pg_authid_rolname_index". With two database test files, Vitest runs them in parallel workers, and both created the shim's cluster-wide roles at the same moment. Locally the timing hid it. Reproduced on purpose by dropping the roles and creating six test databases at once: same error without the fix, none with it. Fix: `tests/db/harness.ts` holds a Postgres advisory lock on the shared root database while it creates a test database and applies the shim and migrations. No test changed.
-- CI: pending re-run (see the next commit).
+- CI result after fix attempt 1: runs 45268562274 (push) and 45268576586 (pull_request) on `agent/phase1-gmail-adapter` are green. PostgreSQL 16.16 on the runner, 435/435 unit and database tests (none skipped, including the 15 Vault tests), UI tests 5/5, secret scan 0 findings, and the speech model tests still pass. The summary-eval job skipped as designed (no secret).
 - PR: #19
 - Next: remaining-list item 1, the Gmail connect flow and pipeline glue.
 
