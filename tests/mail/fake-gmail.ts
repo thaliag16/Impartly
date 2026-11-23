@@ -40,6 +40,22 @@ export interface FakeGoogle {
   refreshCount: number;
   /** Message ids returned by the list (default: the two fixture pages). */
   emptyList: boolean;
+  /** Authorization-code grant: the code Google accepts and what it answers. */
+  authCode: string;
+  /** Scope string the code exchange reports as granted. */
+  grantedScope: string;
+  /** Whether the code exchange returns a refresh token. */
+  issueRefreshToken: boolean;
+  /** The refresh token handed out by the code exchange. */
+  issuedRefreshToken: string;
+  /** Verifiers the code exchange received (PKCE). */
+  codeVerifiers: string[];
+  /** Tokens sent to the revoke endpoint. */
+  revoked: string[];
+  /** Status the revoke endpoint answers (200 by default). */
+  revokeStatus: number;
+  /** Gmail profile answers this status instead of the fixture (0 = normal). */
+  profileStatus: number;
 }
 
 const json = (status: number, body: unknown) =>
@@ -54,6 +70,14 @@ export function createFakeGoogle(initial: { accessToken: string; refreshedAccess
     alwaysUnauthorized: false,
     refreshCount: 0,
     emptyList: false,
+    authCode: "invented-auth-code",
+    grantedScope: "https://www.googleapis.com/auth/gmail.readonly",
+    issueRefreshToken: true,
+    issuedRefreshToken: "invented-refresh-token-from-code",
+    codeVerifiers: [],
+    revoked: [],
+    revokeStatus: 200,
+    profileStatus: 0,
     fetch: undefined as unknown as typeof fetch,
   };
 
@@ -66,6 +90,19 @@ export function createFakeGoogle(initial: { accessToken: string; refreshedAccess
 
     if (url.origin === "https://oauth2.googleapis.com" && url.pathname === "/token") {
       const form = new URLSearchParams(body);
+      if (form.get("grant_type") === "authorization_code") {
+        state.codeVerifiers.push(form.get("code_verifier") ?? "");
+        if (form.get("code") !== state.authCode || !form.get("code_verifier")) {
+          return json(400, { error: "invalid_grant", error_description: "Bad Request" });
+        }
+        return json(200, {
+          access_token: state.validAccessToken,
+          expires_in: 3599,
+          scope: state.grantedScope,
+          token_type: "Bearer",
+          ...(state.issueRefreshToken ? { refresh_token: state.issuedRefreshToken } : {}),
+        });
+      }
       if (form.get("grant_type") !== "refresh_token") return json(400, { error: "unsupported_grant_type" });
       if (state.refreshRevoked) return json(400, { error: "invalid_grant", error_description: "Token has been expired or revoked." });
       state.refreshCount++;
@@ -78,6 +115,11 @@ export function createFakeGoogle(initial: { accessToken: string; refreshedAccess
       });
     }
 
+    if (url.origin === "https://oauth2.googleapis.com" && url.pathname === "/revoke") {
+      state.revoked.push(new URLSearchParams(body).get("token") ?? "");
+      return json(state.revokeStatus, state.revokeStatus === 200 ? {} : { error: "invalid_token" });
+    }
+
     if (url.origin !== "https://gmail.googleapis.com") return json(404, { error: "not found" });
     if (method !== "GET") return json(405, { error: "method not allowed" });
     if (state.alwaysUnauthorized || headers.authorization !== `Bearer ${state.validAccessToken}`) {
@@ -86,7 +128,10 @@ export function createFakeGoogle(initial: { accessToken: string; refreshedAccess
 
     const prefix = "/gmail/v1/users/me";
     const rest = url.pathname.slice(prefix.length);
-    if (rest === "/profile") return json(200, gmailFixture("profile.json"));
+    if (rest === "/profile") {
+      if (state.profileStatus) return json(state.profileStatus, { error: { code: state.profileStatus } });
+      return json(200, gmailFixture("profile.json"));
+    }
     if (rest === "/messages") {
       if (state.emptyList) return json(200, gmailFixture("list-empty.json"));
       const page = url.searchParams.get("pageToken") === "invented-page-token-2" ? "list-page-2.json" : "list-page-1.json";

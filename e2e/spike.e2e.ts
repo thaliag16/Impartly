@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { buildCue, type CueSound } from "../app/spike/tone";
 import { installProbe, type Probe } from "./instrument";
+import { signIn } from "./sign-in";
 
 // JSON round trip drops the handler functions, which cannot leave the page.
 const probe = (page: Page) =>
@@ -44,7 +45,9 @@ const log = (page: Page) => page.locator("pre");
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(installProbe);
-  await page.goto("/spike");
+  // Every route needs sign-in; /login sends us on to /spike.
+  await signIn(page, "/spike");
+  await expect(page).toHaveURL(/\/spike$/);
   await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
 });
 
