@@ -16,6 +16,7 @@
     "test:models": "vitest run --config vitest.models.config.mts"
   },
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "kokoro-js": "1.2.1",
     "next": "16.4.6",
     "react": "19.3.1",

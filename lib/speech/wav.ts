@@ -30,3 +30,46 @@ export function encodeWav(parts: Float32Array[], sampleRate: number): ArrayBuffe
   }
   return buffer;
 }
+
+export type DecodedWav = { samples: Float32Array; sampleRate: number };
+
+/** Reads a 16-bit PCM WAV file (any channel count, mixed down to mono). */
+export function decodeWav(bytes: ArrayBuffer): DecodedWav {
+  const view = new DataView(bytes);
+  const text = (offset: number) =>
+    String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
+  if (bytes.byteLength < 12 || text(0) !== "RIFF" || text(8) !== "WAVE") throw new Error("not a WAV file");
+  let format: { channels: number; sampleRate: number; bits: number; audioFormat: number } | null = null;
+  let offset = 12;
+  while (offset + 8 <= bytes.byteLength) {
+    const id = text(offset);
+    const size = view.getUint32(offset + 4, true);
+    const body = offset + 8;
+    if (id === "fmt ") {
+      format = {
+        audioFormat: view.getUint16(body, true),
+        channels: view.getUint16(body + 2, true),
+        sampleRate: view.getUint32(body + 4, true),
+        bits: view.getUint16(body + 14, true),
+      };
+    } else if (id === "data") {
+      if (!format) throw new Error("WAV data chunk before fmt chunk");
+      // 1 is PCM; 0xfffe (extensible) is accepted when the samples are 16-bit.
+      if ((format.audioFormat !== 1 && format.audioFormat !== 0xfffe) || format.bits !== 16) {
+        throw new Error(`only 16-bit PCM WAV is supported (format ${format.audioFormat}, ${format.bits}-bit)`);
+      }
+      const frames = Math.floor(Math.min(size, bytes.byteLength - body) / (2 * format.channels));
+      const samples = new Float32Array(frames);
+      for (let frame = 0; frame < frames; frame++) {
+        let sum = 0;
+        for (let channel = 0; channel < format.channels; channel++) {
+          sum += view.getInt16(body + (frame * format.channels + channel) * 2, true) / 32768;
+        }
+        samples[frame] = sum / format.channels;
+      }
+      return { samples, sampleRate: format.sampleRate };
+    }
+    offset = body + size + (size % 2);
+  }
+  throw new Error("WAV file has no data chunk");
+}

@@ -74,12 +74,13 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # Kokoro model tests (GOAL.md Phase 0). Separate job so the checks above stay fast.
+  # Speech model tests (GOAL.md Phase 0): Kokoro duration, and Moonshine word error rate
+  # on Kokoro-rendered question clips. Separate job so the checks above stay fast.
   # Model files come from the publisher's Hugging Face repository at the commit pinned in
   # scripts/model-pins.json and are verified by SHA-256 before use (SECURITY.md). This job
   # fails if the files cannot be fetched or verified; it never skips.
   models:
-    name: Kokoro model tests
+    name: Speech model tests (Kokoro, Moonshine)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:

@@ -24,6 +24,7 @@ models/
 *.pth
 *.safetensors
 *.wav
+!tests/speech/fixtures/clips/*.wav
 *.mp3
 
 # Xcode

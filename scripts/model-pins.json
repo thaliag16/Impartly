@@ -9,5 +9,19 @@
       { "path": "tokenizer_config.json", "sha256": "be1cb066d6ef6b074b3f15e6a6dd21ac88ff3cdaedf325f0aaed686c70f75d20" },
       { "path": "onnx/model_quantized.onnx", "sha256": "fbae9257e1e05ffc727e951ef9b9c98418e6d79f1c9b6b13bd59f5c9028a1478" }
     ]
+  },
+  "moonshine": {
+    "repo": "onnx-community/moonshine-base-ONNX",
+    "revision": null,
+    "pinnedFrom": null,
+    "files": [
+      { "path": "config.json", "sha256": null },
+      { "path": "generation_config.json", "sha256": null },
+      { "path": "preprocessor_config.json", "sha256": null },
+      { "path": "tokenizer.json", "sha256": null },
+      { "path": "tokenizer_config.json", "sha256": null },
+      { "path": "onnx/encoder_model.onnx", "sha256": null },
+      { "path": "onnx/decoder_model_merged_q4.onnx", "sha256": null }
+    ]
   }
 }
