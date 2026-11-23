@@ -1,12 +1,12 @@
 ## Status
 Phase: 0 | Checks: 6/7 passing, locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; eval:summaries deferred to Phase 1) + speech model tests passing in CI (`test:models`: Kokoro duration, Moonshine WER) | Summary eval: n/a | Last run: 2026-11-23 (run 6)
-Phase 0 agent-checkable: all five passing in CI (on the stacked, unmerged PRs #10 to #16): build/lint/typecheck/test; Kokoro 60 s duration test; Moonshine WER on three clips (**synthetic Kokoro clips as a stand-in for recordings**, see Questions); mic/playback exclusion and Bell cue (e2e); pause button (e2e). Model hashes for Kokoro and Moonshine are trust-on-first-use, to confirm (see Questions).
+Phase 0 agent-checkable: all five passing in CI (on the stacked, unmerged PRs #9 to #16): build/lint/typecheck/test; Kokoro 60 s duration test; Moonshine WER on three clips (**synthetic Kokoro clips as a stand-in for recordings**, see Questions); mic/playback exclusion and Bell cue (e2e); pause button (e2e). Model hashes for Kokoro and Moonshine are trust-on-first-use, to confirm (see Questions).
 
 ## Phase 0 ready for Thalia's sign-off
 Every Phase 0 agent-checkable item now passes in CI (GitHub Actions run 45237649180 on `agent/phase0-moonshine-wer`, the top of the PR stack). Phase 1 has not been started and CLAUDE.md's "Current phase" is unchanged: that is yours to update.
 
 Before signing off, note what "passing" rests on:
-- The PRs are stacked (#10 to #16) and none is merged. Review and merge them in order, starting with #10.
+- The PRs are stacked (#9 to #16) and none is merged. Review and merge them in order, starting with #9.
 - The Moonshine item is met with synthetic clips rendered by Kokoro, not human recordings. Recording three real clips is in Questions.
 - The Kokoro and Moonshine model hashes were pinned on first use from CI (see Questions).
 - The summary eval is deferred to Phase 1 (decided provisionally in run 1).
@@ -14,7 +14,7 @@ Before signing off, note what "passing" rests on:
 Your check, "Tap-to-ask plays and records cleanly on a real iPhone":
 1. Open the `/spike` page of a deployment of the top branch over HTTPS on your iPhone in Safari (the mic only works on HTTPS, so a Vercel preview of `agent/phase0-moonshine-wer` is the easiest; a laptop on plain `http://` over Wi-Fi will not get the mic).
 2. Put in your AirPods and work through the seven numbered steps on the page: Start (notes hop left and right), Pause then Play (resumes in place), try the three cues, Tap to ask and speak for 5 seconds (cue heard before the mic opens, briefing silent while it records, recording plays back clearly), sound quality after it resumes, pausing from the AirPods, and the locked-phone test.
-3. Note anything that sounds wrong, then press "Copy log" and paste the log into a comment on PR #10 or here. The log holds device and timing lines only, no audio.
+3. Note anything that sounds wrong, then press "Copy log" and paste the log into a comment on PR #16 or here. The log holds device and timing lines only, no audio.
 4. If all is well, tick "Tap-to-ask plays and records cleanly on a real iPhone" in GOAL.md and set "Current phase" in CLAUDE.md to Phase 1.
 
 ## Questions for Thalia
@@ -50,7 +50,7 @@ Your check, "Tap-to-ask plays and records cleanly on a real iPhone":
 - CI: model job renamed "Speech model tests (Kokoro, Moonshine)". Its cache key is the pins file, so the new pins started a fresh cache.
 - New packages: none (Transformers.js moved from an indirect to a direct dependency; its notice row is updated). Moonshine's notice row now names the pinned ONNX conversion.
 - Checks before → after: 6/7 → 6/7, plus Moonshine WER now passing in CI (unit tests 45 → 70; UI tests 5/5; model tests 4 → 8). With this, all Phase 0 agent-checkable items pass in CI: posted "Phase 0 ready for Thalia's sign-off" above.
-- PR: (opened after this log entry)
+- PR: #16
 - Next: wait for Thalia's sign-off and her answers in Questions. Do not start Phase 1. Still open from run 5: pin and verify the app's runtime model downloads (speech-test route, browser worker, voice files).
 
 ### 2026-11-23 run 5
