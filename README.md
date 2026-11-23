@@ -81,6 +81,12 @@ with Phase 5.
 It is early, so the most useful contribution right now is an issue: an idea, a newsletter
 format that breaks things, or a correction. Pull requests are welcome once Phase 1 lands.
 
+Database changes go in `supabase/migrations/`. Their row-level security tests
+(`tests/db/rls.test.ts`, part of `npm test`) need a throwaway local PostgreSQL (15 or newer):
+set `DATABASE_URL` to a superuser URL on `localhost`, for example
+`DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm test`. Each run creates
+and drops its own database. Without `DATABASE_URL` they are skipped locally; CI always runs them.
+
 ## Credits
 
 Built on [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) and

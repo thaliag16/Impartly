@@ -55,7 +55,20 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The RLS tests (tests/db) need a real Postgres. The runner image ships PostgreSQL
+      # with its service stopped; start it and give the postgres role a password for TCP.
+      # Throwaway server on this runner only, so the password is not a secret. The tests
+      # create and drop their own database. With CI=true they fail if DATABASE_URL is unset.
+      - name: Start local PostgreSQL (for the RLS tests)
+        run: |
+          sudo systemctl start postgresql.service
+          pg_isready --timeout=30
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "alter user postgres password 'postgres'"
+          sudo -u postgres psql -Atc "select version()"
+
       - name: Unit tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: npm test
 
       # No secret here: this checks the eval harness with a fake provider and says so in
