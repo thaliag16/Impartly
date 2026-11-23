@@ -1,0 +1,42 @@
+{
+  "id": "04-climate-selmara-glacier",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "deep",
+  "newsletter": {
+    "from": "The Thaw Report <editor@thawreport.example>",
+    "subject": "Selmara Glacier's retreat speeds up",
+    "receivedAt": "2026-11-20T07:45:00Z",
+    "text": "## This week\n\nA survey team from the University of Norvale found that the Selmara Glacier retreated 410 meters over the past year, the fastest pace since measurements began in 1962. The previous record was 260 meters.\n\nThe team, led by glaciologist Petra Lindqvar, used drone mapping and 14 ground stations. They found the glacier's surface dropped by an average of 3.1 meters, and that meltwater lakes on its surface doubled in number to 48.\n\nDownstream, the town of Esker Bay relies on the glacier's meltwater for about 40% of its summer drinking water. The town council voted last week to fund a new reservoir costing $18 million, due to open in 2029.\n\nLindqvar said the team will publish the full data set in January and repeat the survey every six months instead of every year.\n\n* * *\nSupport independent climate reporting: https://thawreport.example/donate"
+  },
+  "keyFacts": [
+    {
+      "fact": "Retreated 410 meters, fastest since 1962",
+      "terms": [
+        "Selmara",
+        "410",
+        "1962"
+      ]
+    },
+    {
+      "fact": "University of Norvale survey",
+      "terms": [
+        "Norvale"
+      ]
+    },
+    {
+      "fact": "Esker Bay relies on meltwater for 40% of summer water",
+      "terms": [
+        "Esker Bay",
+        "40 percent"
+      ]
+    },
+    {
+      "fact": "$18 million reservoir",
+      "terms": [
+        "18 million"
+      ]
+    }
+  ],
+  "referenceSummary": "A University of Norvale survey found the Selmara Glacier retreated 410 meters over the past year, the fastest pace since measurements began in 1962, beating the previous record of 260 meters. The team, led by glaciologist Petra Lindqvar, used drone mapping and 14 ground stations, and found the surface dropped by an average of 3.1 meters while meltwater lakes doubled to 48. Downstream, Esker Bay gets about 40% of its summer drinking water from the glacier, and its council voted to fund an $18 million reservoir due to open in 2029. The team will publish its data in January and survey every six months from now on."
+}

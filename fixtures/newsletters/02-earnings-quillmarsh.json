@@ -1,0 +1,34 @@
+{
+  "id": "02-earnings-quillmarsh",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "brief",
+  "newsletter": {
+    "from": "Margin Call Daily <desk@margincall.example>",
+    "subject": "Quillmarsh beats and raises",
+    "receivedAt": "2026-11-22T21:30:00Z",
+    "text": "EARNINGS WRAP\n\nQuillmarsh Foods reported third-quarter revenue of $1.2 billion, up 8% from a year earlier, as frozen meals kept selling despite price increases. Operating margin came in at 11.5%, compared with 10.2% a year ago.\n\nThe company raised its full-year revenue guidance to $4.7 billion from $4.5 billion. Chief executive Dana Orvell said input costs had \"finally stopped climbing\".\n\nShares rose 6% in after-hours trading.\n\nThis newsletter is for information only and is not investment advice."
+  },
+  "keyFacts": [
+    {
+      "fact": "Quarterly revenue $1.2 billion",
+      "terms": [
+        "Quillmarsh",
+        "1.2 billion"
+      ]
+    },
+    {
+      "fact": "Up 8%",
+      "terms": [
+        "8 percent"
+      ]
+    },
+    {
+      "fact": "Raised full-year guidance to $4.7 billion",
+      "terms": [
+        "4.7 billion"
+      ]
+    }
+  ],
+  "referenceSummary": "Quillmarsh Foods reported third-quarter revenue of $1.2 billion, up 8% from a year earlier, with operating margin rising to 11.5% from 10.2%. It raised its full-year revenue guidance to $4.7 billion from $4.5 billion, and its shares rose 6% after hours."
+}

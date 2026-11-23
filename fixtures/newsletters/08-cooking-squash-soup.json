@@ -1,0 +1,28 @@
+{
+  "id": "08-cooking-squash-soup",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "headline",
+  "newsletter": {
+    "from": "Sunday Supper <cook@sundaysupper.example>",
+    "subject": "This week: miso squash soup",
+    "receivedAt": "2026-11-22T09:00:00Z",
+    "text": "Hi friends!\nThis week's recipe is a miso squash soup that takes 45 minutes and feeds four. Roast the squash, blend it with white miso and ginger, and finish with toasted seeds.\nNext week: a one-pan lemon chicken."
+  },
+  "keyFacts": [
+    {
+      "fact": "Miso squash soup",
+      "terms": [
+        "miso",
+        "squash"
+      ]
+    },
+    {
+      "fact": "Takes 45 minutes",
+      "terms": [
+        "45 minutes"
+      ]
+    }
+  ],
+  "referenceSummary": "This week's recipe is a miso squash soup that takes 45 minutes and feeds four, with roasted squash blended with miso and ginger."
+}

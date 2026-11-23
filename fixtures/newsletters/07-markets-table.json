@@ -1,0 +1,34 @@
+{
+  "id": "07-markets-table",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "brief",
+  "newsletter": {
+    "from": "The Closing Bell <close@closingbell.example>",
+    "subject": "Stocks climb, yields slip",
+    "receivedAt": "2026-11-21T22:15:00Z",
+    "text": "MARKETS AT THE CLOSE\n\n| Index | Close | Change |\n|---|---|---|\n| Meridian 500 | 6,214 | +1.3% |\n| Tech 90 | 18,402 | +2.1% |\n| 10-year yield | 4.1% | -0.08 |\n\nStocks rose for a third straight day after a report showed factory output growing faster than expected. Tech shares led, while the 10-year government bond yield slipped to 4.1%.\n\nOil fell 2% to $71 a barrel."
+  },
+  "keyFacts": [
+    {
+      "fact": "Meridian 500 up 1.3% to 6,214",
+      "terms": [
+        "Meridian 500",
+        "1.3 percent"
+      ]
+    },
+    {
+      "fact": "10-year yield at 4.1%",
+      "terms": [
+        "4.1 percent"
+      ]
+    },
+    {
+      "fact": "Third straight day of gains",
+      "terms": [
+        "third"
+      ]
+    }
+  ],
+  "referenceSummary": "Stocks rose for a third straight day after factory output grew faster than expected, with the Meridian 500 up 1.3% to 6,214 and the Tech 90 up 2.1%. The 10-year government bond yield slipped to 4.1%, and oil fell 2% to $71 a barrel."
+}
