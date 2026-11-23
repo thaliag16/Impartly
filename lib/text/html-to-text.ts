@@ -1,4 +1,5 @@
-// Newsletter HTML to plain text for the summarizer.
+// Newsletter HTML to plain text for the summarizer. Shared by every source (mail and web
+// feeds): web content is just as untrusted as mail, so the same hidden-text rules apply.
 //
 // The rule that matters most: text a reader cannot see must not reach the summarizer.
 // Hidden text is the easiest place to plant instructions for a model (a white-on-white

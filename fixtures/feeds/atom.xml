@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented Atom feed for tests. -->
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">Signal &amp; Noise Dispatch</title>
+  <link rel="self" href="https://dispatch.example/atom.xml"/>
+  <link rel="alternate" href="https://dispatch.example/"/>
+  <id>urn:uuid:00000000-0000-4000-8000-000000000001</id>
+  <updated>2026-11-23T08:00:00Z</updated>
+  <entry>
+    <title type="html">Fernbrook Energy &lt;em&gt;doubles&lt;/em&gt; output</title>
+    <link rel="alternate" href="/2026/fernbrook"/>
+    <id>tag:dispatch.example,2026:fernbrook</id>
+    <published>2026-11-23T08:00:00Z</published>
+    <updated>2026-11-23T09:00:00Z</updated>
+    <summary>Short summary of the Fernbrook story.</summary>
+    <content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Fernbrook Energy doubled solar output to 900 megawatts at its invented Calloway site.</p><p>The company said the expansion cost $520 million and was finished three months early. Chief executive Mara Lindqvist said a second phase would follow in 2027, subject to the made-up regional permit board.</p><p>Shares of the fictional company rose 6% on the news, and the invented utility Westmarch Power signed a ten-year purchase agreement for half of the new capacity.</p><p>Local officials in the made-up county said the project created 340 construction jobs and 45 permanent ones, and that a community fund would receive $2 million a year from the operator.</p></div></content>
+  </entry>
+  <entry>
+    <title>Plain text entry</title>
+    <link href="https://dispatch.example/2026/plain"/>
+    <id>tag:dispatch.example,2026:plain</id>
+    <updated>2026-11-22T08:00:00Z</updated>
+    <content type="text">Thistledown Foods recalled 2,000 invented jars of jam. &lt;b&gt;This is text, not markup.&lt;/b&gt;</content>
+  </entry>
+</feed>

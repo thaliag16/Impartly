@@ -8,7 +8,7 @@ import type { TokenStore } from "./token-store";
 import type { MailAdapter } from "./types";
 
 export * from "./types";
-export { htmlToText, plainTextToText } from "./html-to-text";
+export { htmlToText, plainTextToText } from "../text/html-to-text";
 export { detectNewsletter, pullNewsletters, selectNewsletters, toSummarizerInput } from "./newsletters";
 export type { NewsletterSource, PulledNewsletter, Selection } from "./newsletters";
 export { createVaultTokenStore, createMemoryTokenStore } from "./token-store";

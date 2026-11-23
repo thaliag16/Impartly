@@ -1,36 +1,48 @@
 // The pull-and-summarize pipeline for ONE user:
-//   1. load the user's settings (summary length), newsletter sources and mail connections
-//   2. for each active connection: pull newsletters received since its last pull (or the
-//      last 24 hours on the first pull) through the read-only mail adapter
-//   3. store them, and add newly seen newsletter senders to newsletter_sources
-//   4. on MailAuthError (grant revoked or expired) mark the connection status 'error' so
-//      the user is asked to reconnect, and carry on with the rest
+//   1. load the user's settings (summary length), mail sender rules, mail connections and
+//      web feeds
+//   2. turn each into a NewsletterSource (lib/sources): a web feed the user picked, or a
+//      connected mailbox (optional). The pipeline only sees the source interface, so later
+//      sources (forwarding, iPhone mail access) plug in without changing this file
+//   3. pull each active source: items published or received since its last pull (or the
+//      last 24 hours on the first pull), store them (de-duplicated by the source's item
+//      key), and for mail add newly seen newsletter senders to newsletter_sources
+//   4. on SourceAuthError (a mailbox grant revoked or expired) mark the connection status
+//      'error' so the user is asked to reconnect; any other failure is recorded and the
+//      rest carry on
 //   5. summarize the user's stored newsletters that have no summary at the chosen length
 //      yet, through lib/summarizer, and store the summaries
 //
-// Idempotent: storing is keyed on the provider's message id and summaries on (newsletter,
-// length), so running it twice stores nothing twice and summarizes nothing twice.
+// Idempotent: storing is keyed on (connection, provider message id) for mail and (feed,
+// item key) for web feeds, and summaries on (newsletter, length), so running it twice
+// stores nothing twice and summarizes nothing twice.
 //
-// Bounded: at most `maxMessagesPerConnection` messages are listed per connection per run
-// (newest first), each newsletter's text is capped at `maxCharsPerNewsletter`, and at most
+// Bounded: at most `maxMessagesPerConnection` items are taken per source per run (newest
+// first), each newsletter's text is capped at `maxCharsPerNewsletter`, and at most
 // `maxSummariesPerRun` summaries totalling `maxSummaryCharsPerRun` input characters are
-// requested per run, so one huge inbox cannot run up model cost. Whatever is left is
-// picked up by the next run (within `pendingWindowHours`).
+// requested per run, so one huge inbox or feed cannot run up model cost. Whatever is left
+// is picked up by the next run (within `pendingWindowHours`).
 //
 // Failure isolation: one newsletter failing to store or summarize is counted and skipped;
-// one connection failing does not stop the others. Results hold counts and short error
-// codes only, never newsletter text, addresses or tokens, so they are safe to log.
+// one source failing does not stop the others. Results hold counts and short error codes
+// only, never newsletter text, addresses, URLs or tokens, so they are safe to log.
 
-import { MailAuthError, pullNewsletters, type MailAdapter } from "../mail";
+import type { MailAdapter, NewsletterSource as SenderRule } from "../mail";
+import { mailSource } from "../sources/mail";
+import { SourceAuthError, SourceFetchError, type NewsletterSource, type PullResult } from "../sources/types";
+import type { WebFetcher } from "../sources/web/fetcher";
+import { webFeedSource } from "../sources/web/feed-source";
 import type { Newsletter, SummaryProvider } from "../summarizer/types";
-import type { PipelineConnection, PipelineStore } from "./store";
+import type { PipelineConnection, PipelineFeed, PipelineStore } from "./store";
 
 export interface PipelineLimits {
+  /** Per source (mail connection or web feed) per run. */
   maxMessagesPerConnection: number;
   maxCharsPerNewsletter: number;
   maxSummariesPerRun: number;
   maxSummaryCharsPerRun: number;
-  /** How far back the first pull of a new connection looks. */
+  /** How far back the first pull of a new source looks. Web feeds also re-read this much
+   * before their last fetch, since items can be dated before they appear in the feed. */
   firstPullWindowHours: number;
   /** Newsletters older than this are no longer summarized if they were missed. */
   pendingWindowHours: number;
@@ -45,26 +57,58 @@ export const DEFAULT_PIPELINE_LIMITS: Readonly<PipelineLimits> = Object.freeze({
   pendingWindowHours: 72,
 });
 
+/** A stored source, before it is turned into a NewsletterSource. */
+export type StoredSource =
+  | { kind: "mail"; connection: PipelineConnection }
+  | { kind: "web"; feed: PipelineFeed };
+
 export interface PipelineDeps {
   store: PipelineStore;
-  /** The read-only adapter for one stored connection. May throw (e.g. unsupported provider). */
-  adapterFor(connection: PipelineConnection): MailAdapter;
+  /**
+   * Builds the NewsletterSource for a stored source. When absent, mail connections use
+   * `adapterFor` and web feeds use `webFetcher`. May throw (e.g. unsupported provider).
+   */
+  sourceFor?(stored: StoredSource, context: { senderRules: () => readonly SenderRule[] }): NewsletterSource;
+  /** The read-only adapter for one stored mail connection (mail is optional). */
+  adapterFor?(connection: PipelineConnection): MailAdapter;
+  /** The polite web fetcher (one per run, so robots.txt is read once per site). */
+  webFetcher?: WebFetcher;
   summarizer: SummaryProvider;
   now?: () => Date;
   limits?: Partial<PipelineLimits>;
 }
 
-export type ConnectionOutcome =
+export type SourceOutcome =
   | "pulled"
+  | "not_modified" // web feed answered 304: nothing new
   | "auth_error" // marked status = 'error'; the user must reconnect
-  | "failed" // anything else; last_synced_at not moved, so the next run retries
-  | "skipped"; // not active (error or revoked)
+  | "failed" // anything else; the window is not moved, so the next run retries
+  | "skipped"; // not active (mail error or revoked) or switched off (web feed)
 
+export interface SourceResult {
+  kind: "mail" | "web";
+  sourceId: string;
+  outcome: SourceOutcome;
+  listed: number;
+  /** The source had more than maxMessagesPerConnection items: older ones were not read. */
+  capped: boolean;
+  stored: number;
+  alreadyStored: number;
+  storeFailures: number;
+  /** Mail only: new senders added to newsletter_sources. */
+  newSenders: number;
+  /** Items stored as partial (only a teaser or excerpt was public). */
+  partial: number;
+  error?: string;
+}
+
+export type ConnectionOutcome = "pulled" | "auth_error" | "failed" | "skipped";
+
+/** A mail connection's result (the mail view of SourceResult). */
 export interface ConnectionResult {
   connectionId: string;
   outcome: ConnectionOutcome;
   listed: number;
-  /** The list hit maxMessagesPerConnection: older mail in the window was not read. */
   capped: boolean;
   stored: number;
   alreadyStored: number;
@@ -73,9 +117,25 @@ export interface ConnectionResult {
   error?: string;
 }
 
+/** A web feed's result (the web view of SourceResult). */
+export interface FeedResult {
+  feedId: string;
+  outcome: SourceOutcome;
+  listed: number;
+  capped: boolean;
+  stored: number;
+  alreadyStored: number;
+  storeFailures: number;
+  partial: number;
+  error?: string;
+}
+
 export interface PipelineResult {
   userId: string;
+  /** Every source, mail connections first, in stored order. */
+  sources: SourceResult[];
   connections: ConnectionResult[];
+  feeds: FeedResult[];
   /**
    * deferred: newsletters left for a later run by the per-run caps. The pending list is
    * read with one row beyond maxSummariesPerRun, so this is a lower bound, not a total.
@@ -83,11 +143,30 @@ export interface PipelineResult {
   summaries: { created: number; failed: number; deferred: number };
 }
 
-/** A short, safe label for an error: its name only (never its message). */
+/** A short, safe label for an error: a known code, or the error's name (never its message). */
 function errorCode(err: unknown): string {
-  if (err instanceof MailAuthError) return "mail_auth";
+  if (err instanceof SourceAuthError || err instanceof SourceFetchError) return err.code;
   if (err instanceof Error && /^[A-Za-z]{1,40}$/.test(err.name)) return err.name;
   return "unknown";
+}
+
+/** web_feeds.last_error accepts lower case letters, digits, "_" and "+" only. */
+const storableCode = (code: string) => code.toLowerCase().replace(/[^a-z0-9_+]/g, "_").slice(0, 40) || "unknown";
+
+function defaultSourceFor(deps: PipelineDeps, now: () => Date): NonNullable<PipelineDeps["sourceFor"]> {
+  return (stored, context) => {
+    if (stored.kind === "mail") {
+      if (!deps.adapterFor) throw new Error("NoMailAdapter");
+      return mailSource({ id: stored.connection.id, adapter: deps.adapterFor(stored.connection), senderRules: context.senderRules });
+    }
+    if (!deps.webFetcher) throw new Error("NoWebFetcher");
+    const f = stored.feed;
+    return webFeedSource(
+      { id: f.id, feedUrl: f.feedUrl, title: f.title, etag: f.etag, lastModified: f.lastModified },
+      deps.webFetcher,
+      now,
+    );
+  };
 }
 
 export async function runPipelineForUser(userId: string, deps: PipelineDeps): Promise<PipelineResult> {
@@ -95,18 +174,29 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
   const now = deps.now ?? (() => new Date());
   const runStart = now();
   const state = await deps.store.load(userId);
+  const sourceFor = deps.sourceFor ?? defaultSourceFor(deps, now);
   const result: PipelineResult = {
     userId,
+    sources: [],
     connections: [],
+    feeds: [],
     summaries: { created: 0, failed: 0, deferred: 0 },
   };
+  const windowMs = limits.firstPullWindowHours * 3600_000;
 
-  // Senders added during this run count as known for the next connection.
-  const sources = state.sources.map((s) => ({ ...s }));
+  // Senders added during this run count as known for the next mail connection.
+  const senderRules: SenderRule[] = state.sources.map((s) => ({ ...s }));
 
-  for (const connection of state.connections) {
-    const r: ConnectionResult = {
-      connectionId: connection.id,
+  const stored: StoredSource[] = [
+    ...state.connections.map((connection) => ({ kind: "mail" as const, connection })),
+    ...state.feeds.map((feed) => ({ kind: "web" as const, feed })),
+  ];
+
+  for (const s of stored) {
+    const id = s.kind === "mail" ? s.connection.id : s.feed.id;
+    const r: SourceResult = {
+      kind: s.kind,
+      sourceId: id,
       outcome: "skipped",
       listed: 0,
       capped: false,
@@ -114,78 +204,140 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
       alreadyStored: 0,
       storeFailures: 0,
       newSenders: 0,
+      partial: 0,
     };
-    result.connections.push(r);
-    if (connection.status !== "active") continue;
+    result.sources.push(r);
+    if (s.kind === "mail" ? s.connection.status !== "active" : !s.feed.included) continue;
 
-    const since = connection.lastSyncedAt
-      ? new Date(connection.lastSyncedAt)
-      : new Date(runStart.getTime() - limits.firstPullWindowHours * 3600_000);
+    const last = s.kind === "mail" ? s.connection.lastSyncedAt : s.feed.lastFetchedAt;
+    const since = !last
+      ? new Date(runStart.getTime() - windowMs)
+      : s.kind === "web"
+        ? new Date(Date.parse(last) - windowMs)
+        : new Date(last);
 
-    let selection;
+    let pulled: PullResult;
     try {
-      const adapter = deps.adapterFor(connection);
-      selection = await pullNewsletters(adapter, {
-        sources,
+      const source = sourceFor(s, { senderRules: () => senderRules });
+      pulled = await source.pull({
         since,
         limit: limits.maxMessagesPerConnection,
         maxChars: limits.maxCharsPerNewsletter,
+        firstPull: !last,
       });
     } catch (err) {
       r.error = errorCode(err);
-      if (err instanceof MailAuthError) {
+      if (err instanceof SourceAuthError && s.kind === "mail") {
         r.outcome = "auth_error";
         try {
-          await deps.store.markConnection(userId, connection.id, { status: "error" });
+          await deps.store.markConnection(userId, id, { status: "error" });
         } catch (markErr) {
-          r.error = `mail_auth+${errorCode(markErr)}`;
+          r.error = `${r.error}+${errorCode(markErr)}`;
         }
       } else {
         r.outcome = "failed";
+        if (s.kind === "web") {
+          try {
+            await deps.store.markFeed(userId, id, { error: storableCode(r.error) });
+          } catch (markErr) {
+            r.error = `${r.error}+${errorCode(markErr)}`;
+          }
+        }
       }
       continue;
     }
 
-    const s = selection.skipped;
-    r.listed = selection.newsletters.length + s.beforeSince + s.notNewsletter + s.excluded + s.empty;
-    r.capped = r.listed >= limits.maxMessagesPerConnection;
-
-    for (const n of selection.newsletters) {
+    r.listed = pulled.listed;
+    r.capped = pulled.capped;
+    for (const item of pulled.items) {
       try {
-        const saved = await deps.store.saveNewsletter(userId, {
-          connectionId: connection.id,
-          providerMessageId: n.providerMessageId,
-          senderAddress: n.senderAddress,
-          senderName: n.senderName,
-          subject: n.subject,
-          receivedAt: n.receivedAt,
-          bodyText: n.bodyText,
-        });
-        if (saved.inserted) r.stored++;
-        else r.alreadyStored++;
+        const saved =
+          s.kind === "mail"
+            ? await deps.store.saveNewsletter(userId, {
+                connectionId: id,
+                providerMessageId: item.key,
+                senderAddress: item.senderAddress,
+                senderName: item.senderName,
+                subject: item.subject,
+                receivedAt: item.receivedAt,
+                bodyText: item.bodyText,
+              })
+            : await deps.store.saveFeedItem(userId, {
+                feedId: id,
+                itemKey: item.key,
+                senderAddress: item.senderAddress,
+                senderName: item.senderName,
+                subject: item.subject,
+                receivedAt: item.receivedAt,
+                bodyText: item.bodyText,
+                partial: item.partial,
+                sourceUrl: item.url,
+              });
+        if (saved.inserted) {
+          r.stored++;
+          if (item.partial) r.partial++;
+        } else r.alreadyStored++;
       } catch {
         r.storeFailures++;
       }
     }
 
-    if (selection.discoveredSenders.length) {
+    if (pulled.discoveredSenders?.length) {
       try {
-        r.newSenders = await deps.store.addSources(userId, selection.discoveredSenders);
-        for (const d of selection.discoveredSenders) sources.push({ senderAddress: d.address, included: true });
+        r.newSenders = await deps.store.addSources(userId, pulled.discoveredSenders);
+        for (const d of pulled.discoveredSenders) senderRules.push({ senderAddress: d.address, included: true });
       } catch (err) {
         r.error = errorCode(err);
       }
     }
 
-    r.outcome = "pulled";
+    r.outcome = pulled.cache?.notModified ? "not_modified" : "pulled";
     // Move the window forward only when everything pulled was stored; otherwise the next
-    // run reads the same window again (storing is idempotent, so nothing doubles).
-    if (r.storeFailures === 0) {
-      try {
-        await deps.store.markConnection(userId, connection.id, { syncedAt: runStart });
-      } catch (err) {
-        r.error = errorCode(err);
+    // run reads the same window again (storing is idempotent, so nothing doubles). For a
+    // feed that also means not saving the new cache validators, or a 304 would hide the
+    // items that failed to store.
+    try {
+      if (s.kind === "mail") {
+        if (r.storeFailures === 0) await deps.store.markConnection(userId, id, { syncedAt: runStart });
+      } else if (r.storeFailures === 0) {
+        await deps.store.markFeed(userId, id, {
+          fetchedAt: runStart,
+          etag: pulled.cache?.etag ?? null,
+          lastModified: pulled.cache?.lastModified ?? null,
+        });
+      } else {
+        await deps.store.markFeed(userId, id, { error: "store_failed" });
       }
+    } catch (err) {
+      r.error = errorCode(err);
+    }
+  }
+
+  for (const r of result.sources) {
+    if (r.kind === "mail") {
+      result.connections.push({
+        connectionId: r.sourceId,
+        outcome: r.outcome === "not_modified" ? "pulled" : r.outcome,
+        listed: r.listed,
+        capped: r.capped,
+        stored: r.stored,
+        alreadyStored: r.alreadyStored,
+        storeFailures: r.storeFailures,
+        newSenders: r.newSenders,
+        ...(r.error ? { error: r.error } : {}),
+      });
+    } else {
+      result.feeds.push({
+        feedId: r.sourceId,
+        outcome: r.outcome,
+        listed: r.listed,
+        capped: r.capped,
+        stored: r.stored,
+        alreadyStored: r.alreadyStored,
+        storeFailures: r.storeFailures,
+        partial: r.partial,
+        ...(r.error ? { error: r.error } : {}),
+      });
     }
   }
 

@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "fetch:models": "node scripts/fetch-models.mjs",
     "test:models": "vitest run --config vitest.models.config.mts",
-    "eval:summaries": "vitest run --config vitest.eval.config.mts"
+    "eval:summaries": "vitest run --config vitest.eval.config.mts",
+    "verify:catalog": "VERIFY_CATALOG=1 vitest run --config vitest.catalog.config.mts"
   },
   "dependencies": {
     "@huggingface/transformers": "3.8.1",
@@ -25,6 +26,7 @@
     "parse5": "8.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "saxes": "6.0.0",
     "server-only": "0.0.1"
   },
   "devDependencies": {

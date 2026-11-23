@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Invented feed for tests: teasers and paywalled posts, as a paid newsletter publishes them. -->
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Paywall Weekly</title>
+    <link>https://paywall.example/</link>
+    <item>
+      <title>Inside Tamarind Health's down round</title>
+      <link>https://paywall.example/p/tamarind</link>
+      <guid isPermaLink="false">post-101</guid>
+      <pubDate>Mon, 23 Nov 2026 09:00:00 GMT</pubDate>
+      <description><![CDATA[<p>Tamarind Health raised $18 million at a valuation 40% below its last round, according to the invented filing. Here is what it means for…</p>]]></description>
+    </item>
+    <item>
+      <title>The subscriber-only deep dive</title>
+      <link>https://paywall.example/p/deep-dive</link>
+      <guid isPermaLink="false">post-102</guid>
+      <pubDate>Sun, 22 Nov 2026 09:00:00 GMT</pubDate>
+      <content:encoded><![CDATA[<p>Our invented analysis of Pinecrest Mobility's margins starts with its unit costs, which fell to $3.20 per ride.</p><p>This post is for paid subscribers.</p><p><a href="https://paywall.example/subscribe">Subscribe</a></p>]]></content:encoded>
+    </item>
+    <item>
+      <title>A short free note</title>
+      <link>https://paywall.example/p/note</link>
+      <guid isPermaLink="false">post-103</guid>
+      <pubDate>Sat, 21 Nov 2026 09:00:00 GMT</pubDate>
+      <description>Hollowmere Labs opened a second office.</description>
+    </item>
+  </channel>
+</rss>

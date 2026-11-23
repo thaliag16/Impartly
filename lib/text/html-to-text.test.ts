@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { gmailFixture } from "../../tests/mail/fake-gmail";
-import { parseGmailMessage, type GmailMessage } from "./gmail/adapter";
+import { parseGmailMessage, type GmailMessage } from "../mail/gmail/adapter";
 import { contrastRatio, DEFAULT_MAX_CHARS, hidingRules, htmlToText, parseColor, plainTextToText, styleHides, parseStyle } from "./html-to-text";
-import { visibleText } from "./newsletters";
+import { visibleText } from "../mail/newsletters";
 
 const t = (html: string) => htmlToText(html).text;
 const harbor = () => parseGmailMessage(gmailFixture<GmailMessage>("messages/19a0c0ffee000002.json"));

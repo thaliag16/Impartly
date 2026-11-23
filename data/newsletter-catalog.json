@@ -1,0 +1,129 @@
+{
+  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. Every entry is verified: false until `npm run verify:catalog` (run from a GitHub runner) finds a valid feed at it; the agent that wrote these could not reach any of the sites. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage.",
+  "entries": [
+    {
+      "id": "techcrunch",
+      "name": "TechCrunch",
+      "homepageUrl": "https://techcrunch.com/",
+      "feedUrl": "https://techcrunch.com/feed/",
+      "verified": false,
+      "note": "Site-wide article feed (WordPress /feed/ convention), from memory, not checked. TechCrunch's email newsletters may not have feeds of their own."
+    },
+    {
+      "id": "strictlyvc",
+      "name": "StrictlyVC",
+      "aliases": ["Strictly VC"],
+      "homepageUrl": "https://strictlyvc.com/",
+      "feedUrl": null,
+      "verified": false,
+      "note": "No feed URL known for certain; discovery reads the homepage's advertised feed or tries /feed."
+    },
+    {
+      "id": "morning-brew",
+      "name": "Morning Brew",
+      "homepageUrl": "https://www.morningbrew.com/",
+      "feedUrl": null,
+      "verified": false,
+      "note": "No official RSS feed known; discovery will look. If none is found it needs the public web archive (a later Phase 1 item)."
+    },
+    {
+      "id": "stratechery",
+      "name": "Stratechery",
+      "aliases": ["Ben Thompson"],
+      "homepageUrl": "https://stratechery.com/",
+      "feedUrl": "https://stratechery.com/feed/",
+      "verified": false,
+      "note": "Public articles feed (WordPress /feed/ convention), from memory, not checked. Subscriber-only updates are not in it and are never fetched."
+    },
+    {
+      "id": "lennys-newsletter",
+      "name": "Lenny's Newsletter",
+      "aliases": ["Lenny Rachitsky", "Lennys Newsletter"],
+      "homepageUrl": "https://www.lennysnewsletter.com/",
+      "feedUrl": "https://www.lennysnewsletter.com/feed",
+      "verified": false,
+      "note": "Substack publication; Substack serves every publication's feed at /feed. Paid posts appear as previews and are marked partial."
+    },
+    {
+      "id": "not-boring",
+      "name": "Not Boring",
+      "aliases": ["Packy McCormick"],
+      "homepageUrl": "https://www.notboring.co/",
+      "feedUrl": "https://www.notboring.co/feed",
+      "verified": false,
+      "note": "Substack publication (/feed convention), not checked."
+    },
+    {
+      "id": "platformer",
+      "name": "Platformer",
+      "aliases": ["Casey Newton"],
+      "homepageUrl": "https://www.platformer.news/",
+      "feedUrl": "https://www.platformer.news/rss/",
+      "verified": false,
+      "note": "Ghost publication to the author's knowledge (Ghost serves /rss/), not checked. Paid posts are marked partial."
+    },
+    {
+      "id": "exponential-view",
+      "name": "Exponential View",
+      "aliases": ["Azeem Azhar"],
+      "homepageUrl": "https://www.exponentialview.co/",
+      "feedUrl": "https://www.exponentialview.co/feed",
+      "verified": false,
+      "note": "Substack publication (/feed convention), not checked."
+    },
+    {
+      "id": "pragmatic-engineer",
+      "name": "The Pragmatic Engineer",
+      "aliases": ["Pragmatic Engineer", "Gergely Orosz"],
+      "homepageUrl": "https://newsletter.pragmaticengineer.com/",
+      "feedUrl": "https://newsletter.pragmaticengineer.com/feed",
+      "verified": false,
+      "note": "Substack publication (/feed convention), not checked. Many posts are paid and will be partial."
+    },
+    {
+      "id": "tomasz-tunguz",
+      "name": "Tomasz Tunguz",
+      "aliases": ["Tunguz", "Theory Ventures blog"],
+      "homepageUrl": "https://tomtunguz.com/",
+      "feedUrl": "https://tomtunguz.com/index.xml",
+      "verified": false,
+      "note": "Hugo site to the author's knowledge (Hugo serves /index.xml), not checked."
+    },
+    {
+      "id": "benedict-evans",
+      "name": "Benedict Evans",
+      "aliases": ["Ben Evans"],
+      "homepageUrl": "https://www.ben-evans.com/",
+      "feedUrl": null,
+      "verified": false,
+      "note": "No feed URL known for certain; discovery reads the homepage. The weekly newsletter itself may only be email."
+    },
+    {
+      "id": "the-generalist",
+      "name": "The Generalist",
+      "aliases": ["Generalist"],
+      "homepageUrl": "https://www.generalist.com/",
+      "feedUrl": null,
+      "verified": false,
+      "note": "Host platform not known for certain; discovery reads the homepage and tries the common paths."
+    },
+    {
+      "id": "axios-pro-rata",
+      "name": "Axios Pro Rata",
+      "aliases": ["Pro Rata", "Dan Primack"],
+      "homepageUrl": "https://www.axios.com/newsletters/axios-pro-rata",
+      "feedUrl": null,
+      "verified": false,
+      "note": "No per-newsletter feed known; discovery will look. Likely needs the public web archive (a later Phase 1 item)."
+    },
+    {
+      "id": "fortune-term-sheet",
+      "name": "Term Sheet",
+      "aliases": ["Fortune Term Sheet"],
+      "homepageUrl": "https://fortune.com/newsletters/termsheet/",
+      "feedUrl": null,
+      "verified": false,
+      "note": "No per-newsletter feed known; discovery will look. May be partly paywalled; anything behind it is not read."
+    }
+  ]
+}

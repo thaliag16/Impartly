@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- Invented RSS 1.0 (RDF) feed for tests. -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns="http://purl.org/rss/1.0/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel rdf:about="https://rdf.example/">
+    <title>RDF Gazette</title>
+    <link>https://rdf.example/</link>
+    <description>Invented.</description>
+  </channel>
+  <item rdf:about="https://rdf.example/one">
+    <title>Gazette item one</title>
+    <link>https://rdf.example/one</link>
+    <dc:date>2026-11-23T07:00:00Z</dc:date>
+    <description>The invented town of Quillfield approved a new library budget of $4 million.</description>
+  </item>
+</rdf:RDF>

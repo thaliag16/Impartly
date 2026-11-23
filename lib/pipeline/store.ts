@@ -15,10 +15,24 @@ export interface PipelineConnection {
   lastSyncedAt: string | null;
 }
 
+/** A web feed the user picked (web_feeds row). */
+export interface PipelineFeed {
+  id: string;
+  feedUrl: string;
+  title: string | null;
+  included: boolean;
+  etag: string | null;
+  lastModified: string | null;
+  /** ISO time of the last successful fetch, or null before the first. */
+  lastFetchedAt: string | null;
+}
+
 export interface PipelineState {
   summaryLength: SummaryLength;
+  /** Mail sender rules (newsletter_sources). */
   sources: { senderAddress: string; included: boolean }[];
   connections: PipelineConnection[];
+  feeds: PipelineFeed[];
 }
 
 export interface NewsletterRow {
@@ -29,6 +43,27 @@ export interface NewsletterRow {
   subject: string;
   receivedAt: string;
   bodyText: string;
+}
+
+export interface FeedItemRow {
+  feedId: string;
+  itemKey: string;
+  senderAddress: string;
+  senderName?: string;
+  subject: string;
+  receivedAt: string;
+  bodyText: string;
+  partial: boolean;
+  sourceUrl?: string;
+}
+
+export interface FeedMark {
+  /** Success: when it was fetched, and the cache validators to send next time. */
+  fetchedAt?: Date;
+  etag?: string | null;
+  lastModified?: string | null;
+  /** Failure: a short code (lower case letters, digits, "_" and "+"). */
+  error?: string;
 }
 
 export interface PendingNewsletter {
@@ -51,7 +86,11 @@ export interface PipelineStore {
     connectionId: string,
     update: { status?: "active" | "error"; syncedAt?: Date },
   ): Promise<void>;
+  saveFeedItem(userId: string, row: FeedItemRow): Promise<{ id: string; inserted: boolean }>;
+  markFeed(userId: string, feedId: string, mark: FeedMark): Promise<void>;
 }
+
+const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
 
 const LENGTHS = new Set<string>(["headline", "brief", "deep"]);
 
@@ -77,6 +116,16 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
           provider: c.provider as MailProvider,
           status: c.status as PipelineConnection["status"],
           lastSyncedAt: typeof c.last_synced_at === "string" ? c.last_synced_at : null,
+        })),
+        // Older databases (before the web_feeds migration) return no feeds key.
+        feeds: (raw.feeds === undefined ? [] : asArray(raw.feeds, "pipeline_load")).map((f) => ({
+          id: String(f.id),
+          feedUrl: String(f.feed_url),
+          title: str(f.title),
+          included: f.included === true,
+          etag: str(f.etag),
+          lastModified: str(f.last_modified),
+          lastFetchedAt: str(f.last_fetched_at),
         })),
       };
     },
@@ -130,6 +179,32 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
         p_connection_id: connectionId,
         p_status: update.status ?? null,
         p_synced_at: update.syncedAt ? update.syncedAt.toISOString() : null,
+      });
+    },
+    async saveFeedItem(userId, row) {
+      const raw = (await rpc("pipeline_save_feed_item", {
+        p_user_id: userId,
+        p_feed_id: row.feedId,
+        p_item_key: row.itemKey,
+        p_sender_address: row.senderAddress,
+        p_sender_name: row.senderName ?? null,
+        p_subject: row.subject,
+        p_received_at: row.receivedAt,
+        p_body_text: row.bodyText,
+        p_partial: row.partial,
+        p_source_url: row.sourceUrl ?? null,
+      })) as { id?: unknown; inserted?: unknown } | null;
+      if (!raw || typeof raw.id !== "string") throw new Error("pipeline_save_feed_item returned no id");
+      return { id: raw.id, inserted: raw.inserted === true };
+    },
+    async markFeed(userId, feedId, mark) {
+      await rpc("pipeline_mark_feed", {
+        p_user_id: userId,
+        p_feed_id: feedId,
+        p_fetched_at: mark.fetchedAt ? mark.fetchedAt.toISOString() : null,
+        p_etag: mark.etag ?? null,
+        p_last_modified: mark.lastModified ?? null,
+        p_error: mark.error ?? null,
       });
     },
   };

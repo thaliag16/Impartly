@@ -18,7 +18,7 @@
 // can add it to the user's list.
 
 import type { Newsletter } from "../summarizer/types";
-import { htmlToText, plainTextToText, DEFAULT_MAX_CHARS } from "./html-to-text";
+import { htmlToText, plainTextToText, DEFAULT_MAX_CHARS } from "../text/html-to-text";
 import type { MailAdapter, MailMessage } from "./types";
 
 export interface NewsletterSource {
@@ -65,7 +65,7 @@ export interface PulledNewsletter {
   senderName?: string;
   subject: string;
   receivedAt: string;
-  /** Visible text only (see html-to-text.ts), capped at maxChars. */
+  /** Visible text only (see lib/text/html-to-text.ts), capped at maxChars. */
   bodyText: string;
   truncated: boolean;
   reasons: string[];

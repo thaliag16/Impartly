@@ -14,8 +14,11 @@ from the newsletters and the web, then picks the briefing back up where it left 
 
 ## What it does
 
-1. **Pull.** At the time you choose, Impartly fetches new newsletters from Gmail or Outlook.
-   Access is read-only: it cannot send, delete or change your mail.
+1. **Pull.** You pick the newsletters you like (for example TechCrunch, StrictlyVC or Morning
+   Brew), and at the time you choose Impartly fetches new issues from their public sources:
+   the official RSS or Atom feed, else the public web archive. It respects robots.txt and
+   never gets around a paywall or a sign-in. Reading Gmail is an optional extra for
+   self-hosters, read-only.
 2. **Summarize.** Each issue becomes a short spoken-style summary. You choose the length
    (headline, brief or deep) and the topics to emphasize or skip.
 3. **Render.** Summaries become audio ahead of time, so listening works like a podcast,
@@ -86,6 +89,11 @@ Database changes go in `supabase/migrations/`. Their row-level security tests
 set `DATABASE_URL` to a superuser URL on `localhost`, for example
 `DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm test`. Each run creates
 and drops its own database. Without `DATABASE_URL` they are skipped locally; CI always runs them.
+
+The newsletter catalog (`data/newsletter-catalog.json`) is editable. `npm run verify:catalog`
+checks every entry against the live sites (it needs internet access; CI runs it on pull
+requests that touch the catalog and writes a report to the job summary). Mark an entry
+`verified: true` only after that report shows a valid feed for it.
 
 ## Credits
 

@@ -93,6 +93,13 @@ const TABLES: TableSpec[] = [
     update: ["status", "revoked"],
   },
   {
+    name: "web_feeds",
+    access: "own-read",
+    key: "id",
+    readCols: "id, user_id, feed_url, feed_format, title, homepage_url, catalog_id, included, last_fetched_at, last_error",
+    update: ["included", false],
+  },
+  {
     name: "newsletters",
     access: "own-read",
     key: "id",
@@ -142,6 +149,12 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
           [id, `${label}@mail.example`, randomUUID()],
         )
       ).rows[0].id;
+      ids[label].web_feeds = (
+        await q(
+          "insert into public.web_feeds (user_id, feed_url, feed_format, title) values ($1, $2, 'rss', 'Invented Feed') returning id",
+          [id, `https://feeds-${label.toLowerCase()}.example/feed`],
+        )
+      ).rows[0].id;
       ids[label].newsletters = (
         await q(
           "insert into public.newsletters (user_id, connection_id, provider_message_id, sender_address, subject, received_at, body_text) values ($1, $2, $3, 'news@weekly.example', 'Invented issue', now(), 'Invented body.') returning id",
@@ -166,6 +179,10 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
       mail_connections: (owner) => [
         "insert into public.mail_connections (user_id, provider, account_address, token_secret_id) values ($1, 'gmail', 'x@mail.example', $2)",
         [owner, randomUUID()],
+      ],
+      web_feeds: (owner) => [
+        "insert into public.web_feeds (user_id, feed_url, feed_format, title) values ($1, $2, 'atom', 'Another Invented Feed')",
+        [owner, `https://feeds.example/${randomUUID()}.xml`],
       ],
       newsletters: (owner) => [
         "insert into public.newsletters (user_id, connection_id, provider_message_id, sender_address, subject, received_at, body_text) values ($1, $2, $3, 'n@weekly.example', 's', now(), 'b')",
@@ -394,6 +411,45 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
       [B, rows.mail_connections.A],
     );
     expect(r.error?.code).toBe("23503");
+  });
+
+  it("a newsletter cannot point at another user's web feed, even from the server", async () => {
+    const r = await attempt(
+      db.admin,
+      { kind: "service" },
+      "insert into public.newsletters (user_id, feed_id, provider_message_id, sender_address, subject, received_at, body_text) values ($1, $2, 'cross', 'feeds.example', 's', now(), 'b')",
+      [B, rows.web_feeds.A],
+    );
+    expect(r.error?.code).toBe("23503");
+  });
+
+  it("a newsletter comes from exactly one source: a mail connection or a web feed", async () => {
+    const both = await attempt(
+      db.admin,
+      { kind: "service" },
+      "insert into public.newsletters (user_id, connection_id, feed_id, provider_message_id, sender_address, subject, received_at, body_text) values ($1, $2, $3, 'both', 'feeds.example', 's', now(), 'b')",
+      [A, rows.mail_connections.A, rows.web_feeds.A],
+    );
+    expect(both.error?.code).toBe("23514");
+    const neither = await attempt(
+      db.admin,
+      { kind: "service" },
+      "insert into public.newsletters (user_id, provider_message_id, sender_address, subject, received_at, body_text) values ($1, 'neither', 'feeds.example', 's', now(), 'b')",
+      [A],
+    );
+    expect(neither.error?.code).toBe("23514");
+  });
+
+  it.each([
+    ["a non-http feed URL", "feed_url", "file:///etc/passwd"],
+    ["an unknown feed format", "feed_format", "json"],
+    ["a free-text last_error", "last_error", "Error: something with a URL https://x.example"],
+  ])("web feeds reject %s, even from the server", async (_label, col, value) => {
+    const r = await attempt(db.admin, { kind: "service" }, `update public.web_feeds set ${col} = $1 where id = $2`, [
+      value,
+      rows.web_feeds.A,
+    ]);
+    expect(r.error?.code).toBe("23514");
   });
 
   it("a summary cannot point at another user's newsletter, even from the server", async () => {
