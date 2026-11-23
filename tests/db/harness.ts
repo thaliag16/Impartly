@@ -22,6 +22,9 @@ const ROOT = path.resolve(HERE, "../..");
 export const MIGRATIONS_DIR = path.join(ROOT, "supabase", "migrations");
 const SHIM = path.join(HERE, "supabase-shim.sql");
 
+/** Advisory lock key for database setup (any constant; "impartly" in ASCII). */
+const SETUP_LOCK = 0x696d7061;
+
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 export const dbRequired = process.env.CI === "true" || process.env.REQUIRE_DB === "1";
@@ -64,32 +67,39 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   const base = assertLocalDatabaseUrl(databaseUrl);
   const name = `impartly_test_${randomBytes(6).toString("hex")}`;
 
+  // Test files run in parallel workers, and the shim creates cluster-wide roles. Hold an
+  // advisory lock on the shared root database while setting up, so two workers never
+  // create the same role at once.
   const root = new pg.Client({ connectionString: base.toString() });
   await root.connect();
-  await root.query(`create database ${name}`);
-  await root.end();
-
-  const testUrl = new URL(base.toString());
-  testUrl.pathname = `/${name}`;
-  const admin = new pg.Client({ connectionString: testUrl.toString() });
-  await admin.connect();
-
+  let admin: pg.Client | undefined;
   try {
+    await root.query("select pg_advisory_lock($1)", [SETUP_LOCK]);
+    await root.query(`create database ${name}`);
+
+    const testUrl = new URL(base.toString());
+    testUrl.pathname = `/${name}`;
+    admin = new pg.Client({ connectionString: testUrl.toString() });
+    await admin.connect();
+
     await applySql(admin, "supabase-shim.sql", readFileSync(SHIM, "utf8"));
     for (const file of migrationFiles()) {
       await applySql(admin, file, readFileSync(path.join(MIGRATIONS_DIR, file), "utf8"));
     }
   } catch (err) {
-    await admin.end();
+    await admin?.end();
+    await root.end(); // also releases the lock
     await dropDatabase(base, name);
     throw err;
   }
+  await root.end(); // releases the lock
+  const client = admin;
 
   return {
-    admin,
+    admin: client,
     name,
     async close() {
-      await admin.end();
+      await client.end();
       await dropDatabase(base, name);
     },
   };
