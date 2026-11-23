@@ -1,0 +1,67 @@
+{
+  "id": "19a0c0ffee000008",
+  "threadId": "19a0c0ffee000008",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_UPDATES"
+  ],
+  "snippet": "Café Lettre",
+  "sizeEstimate": 2824,
+  "historyId": "900008",
+  "internalDate": "1795432800000",
+  "payload": {
+    "partId": "",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Mon, 23 Nov 2026 11:20:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 23 Nov 2026 11:20:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000008@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "=?ISO-8859-1?Q?Caf=E9_Lettre?= <lettre@cafe-lettre.example>"
+      },
+      {
+        "name": "Subject",
+        "value": "=?UTF-8?Q?Caf=C3=A9_notes_no._4?="
+      },
+      {
+        "name": "Precedence",
+        "value": "bulk"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"ISO-8859-1\""
+      },
+      {
+        "name": "Content-Transfer-Encoding",
+        "value": "8bit"
+      }
+    ],
+    "body": {
+      "size": 186,
+      "data": "Q2Fm6SBMZXR0cmUsIG5vdGVzIG5vLiA0DQoNClRoZSByb2FzdGVyeSBvbiBQZWxsIFN0cmVldCBub3cgb3BlbnMgYXQgNzowMC4gQ3LobWUgYnL7bOllIGlzIGJhY2sgb24gRnJpZGF5cy4NCg0KVG8gdW5zdWJzY3JpYmUsIHJlcGx5IFNUT1AuIE1vcmUgYXQgPGh0dHBzOi8vY2FmZS1sZXR0cmUuZXhhbXBsZS9ub3Rlcy80Pg0K"
+    }
+  }
+}

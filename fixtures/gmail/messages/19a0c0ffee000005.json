@@ -1,0 +1,62 @@
+{
+  "id": "19a0c0ffee000005",
+  "threadId": "19a0c0ffee000005",
+  "labelIds": [
+    "INBOX"
+  ],
+  "snippet": "Tidewater Almanac Sunrise",
+  "sizeEstimate": 2533,
+  "historyId": "900005",
+  "internalDate": "1795412700000",
+  "payload": {
+    "partId": "",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Mon, 23 Nov 2026 05:45:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 23 Nov 2026 05:45:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000005@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "almanac@tidewater.example"
+      },
+      {
+        "name": "Subject",
+        "value": "=?UTF-8?B?VGlkZXdhdGVyIEFsbWFuYWMg4oCUIHdlZWsgNDg=?="
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"UTF-8\""
+      },
+      {
+        "name": "Content-Transfer-Encoding",
+        "value": "quoted-printable"
+      }
+    ],
+    "body": {
+      "size": 121,
+      "data": "PGRpdj48aDM-VGlkZXdhdGVyIEFsbWFuYWM8L2gzPjxwPlN1bnJpc2UgbW92ZXMgdG8gNjo1OCBieSBGcmlkYXkuIFNwcmluZyB0aWRlIHBlYWtzIGF0IDIuMyBtZXRyZXMgb24gU2F0dXJkYXkuPC9wPjwvZGl2Pg"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "messages": [
+    {
+      "id": "19a0c0ffee000001",
+      "threadId": "19a0c0ffee000001"
+    },
+    {
+      "id": "19a0c0ffee000002",
+      "threadId": "19a0c0ffee000002"
+    },
+    {
+      "id": "19a0c0ffee000003",
+      "threadId": "19a0c0ffee000003"
+    },
+    {
+      "id": "19a0c0ffee000004",
+      "threadId": "19a0c0ffee000004"
+    }
+  ],
+  "nextPageToken": "invented-page-token-2",
+  "resultSizeEstimate": 8
+}

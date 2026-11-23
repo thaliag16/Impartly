@@ -1,0 +1,111 @@
+{
+  "id": "19a0c0ffee000001",
+  "threadId": "19a0c0ffee000001",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_UPDATES",
+    "UNREAD"
+  ],
+  "snippet": "Brightline Weekly, issue 482 Larkspur Robotics raised $40 million in a Series B",
+  "sizeEstimate": 2145,
+  "historyId": "900001",
+  "internalDate": "1795413600000",
+  "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Mon, 23 Nov 2026 06:00:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 23 Nov 2026 06:00:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000001@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "Brightline Weekly <news@brightline-weekly.example>"
+      },
+      {
+        "name": "Subject",
+        "value": "Larkspur raises $40M; Ridgeway caps fares"
+      },
+      {
+        "name": "List-Unsubscribe",
+        "value": "<https://brightline-weekly.example/unsubscribe?u=invented>, <mailto:unsubscribe@brightline-weekly.example>"
+      },
+      {
+        "name": "List-Unsubscribe-Post",
+        "value": "List-Unsubscribe=One-Click"
+      },
+      {
+        "name": "List-Id",
+        "value": "Brightline Weekly <weekly.brightline-weekly.example>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "multipart/alternative; boundary=\"invented-boundary-alternative\""
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=\"UTF-8\""
+          },
+          {
+            "name": "Content-Transfer-Encoding",
+            "value": "quoted-printable"
+          }
+        ],
+        "body": {
+          "size": 248,
+          "data": "QnJpZ2h0bGluZSBXZWVrbHksIGlzc3VlIDQ4MgoKTGFya3NwdXIgUm9ib3RpY3MgcmFpc2VkICQ0MCBtaWxsaW9uIGluIGEgU2VyaWVzIEIgbGVkIGJ5IE5vcnRoZ2F0ZSBWZW50dXJlcy4KUmVhZCB0aGUgZnVsbCBzdG9yeTogaHR0cHM6Ly9icmlnaHRsaW5lLXdlZWtseS5leGFtcGxlL3IvNDgyL3JpZGdld2F5CgpVbnN1YnNjcmliZTogaHR0cHM6Ly9icmlnaHRsaW5lLXdlZWtseS5leGFtcGxlL3Vuc3Vic2NyaWJlP3U9aW52ZW50ZWQ"
+        }
+      },
+      {
+        "partId": "1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"UTF-8\""
+          },
+          {
+            "name": "Content-Transfer-Encoding",
+            "value": "quoted-printable"
+          }
+        ],
+        "body": {
+          "size": 1094,
+          "data": "PCFET0NUWVBFIGh0bWw-CjxodG1sPjxoZWFkPjx0aXRsZT5CcmlnaHRsaW5lIFdlZWtseTwvdGl0bGU-CjxzdHlsZT5ib2R5e2ZvbnQtZmFtaWx5Okdlb3JnaWEsc2VyaWZ9IC5jdGF7Y29sb3I6IzBiNX08L3N0eWxlPgo8c2NyaXB0PndpbmRvdy50cmFja09wZW4gJiYgd2luZG93LnRyYWNrT3BlbigiYnctNDgyIik7PC9zY3JpcHQ-CjwvaGVhZD48Ym9keSBiZ2NvbG9yPSIjZmZmZmZmIj4KPHRhYmxlIHdpZHRoPSIxMDAlIj48dHI-PHRkPgo8aDE-QnJpZ2h0bGluZSBXZWVrbHksIGlzc3VlIDQ4MjwvaDE-CjxwPkxhcmtzcHVyIFJvYm90aWNzIHJhaXNlZCA8Yj4kNDAgbWlsbGlvbjwvYj4gaW4gYSBTZXJpZXMgQiBsZWQgYnkgTm9ydGhnYXRlIFZlbnR1cmVzLgpUaGUgY29tcGFueSBtYWtlcyB3YXJlaG91c2UgcGlja2luZyBhcm1zIGFuZCBzYXlzIHJldmVudWUgdHJpcGxlZCB0byAkMTIgbWlsbGlvbiB0aGlzIHllYXIuPC9wPgo8cD5NZWFud2hpbGUsIHRoZSBSaWRnZXdheSB0cmFuc2l0IGJvYXJkIGFwcHJvdmVkIGEgZmFyZSBjYXAgb2YgJDUgcGVyIGRheSBzdGFydGluZyBNYXJjaCAxLgo8YSBjbGFzcz0iY3RhIiBocmVmPSJodHRwczovL2JyaWdodGxpbmUtd2Vla2x5LmV4YW1wbGUvci80ODIvcmlkZ2V3YXk_dXRtX3NvdXJjZT1uZXdzbGV0dGVyIj5SZWFkIHRoZSBmdWxsIHN0b3J5PC9hPjwvcD4KPHA-UGxhaW4gbGluazogaHR0cHM6Ly9icmlnaHRsaW5lLXdlZWtseS5leGFtcGxlL2FyY2hpdmUvNDgyIGFuZCB0cmFja2luZy1mcmVlIHRleHQsIGE9YiBzdGF5cy48L3A-CjxpbWcgc3JjPSJodHRwczovL3BpeGVsLmJyaWdodGxpbmUtd2Vla2x5LmV4YW1wbGUvb3Blbi5naWY_dT1pbnZlbnRlZCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgYWx0PSIiPgo8L3RkPjwvdHI-PC90YWJsZT4KPHAgc3R5bGU9ImZvbnQtc2l6ZToxMnB4O2NvbG9yOiM2NjY2NjYiPllvdSBhcmUgcmVjZWl2aW5nIHRoaXMgYmVjYXVzZSB5b3Ugc3Vic2NyaWJlZC4KPGEgaHJlZj0iaHR0cHM6Ly9icmlnaHRsaW5lLXdlZWtseS5leGFtcGxlL3Vuc3Vic2NyaWJlP3U9aW52ZW50ZWQiPlVuc3Vic2NyaWJlPC9hPjwvcD4KPC9ib2R5PjwvaHRtbD4"
+        }
+      }
+    ]
+  }
+}

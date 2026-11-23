@@ -1,0 +1,64 @@
+{
+  "id": "19a0c0ffee000004",
+  "threadId": "19a0c0ffee000004",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_PERSONAL",
+    "UNREAD"
+  ],
+  "snippet": "Lunch on Thursday?",
+  "sizeEstimate": 2436,
+  "historyId": "900004",
+  "internalDate": "1795428300000",
+  "payload": {
+    "partId": "",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Mon, 23 Nov 2026 10:05:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 23 Nov 2026 10:05:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000004@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "Dana Invented <dana@mail.example>"
+      },
+      {
+        "name": "Subject",
+        "value": "Lunch on Thursday?"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"UTF-8\""
+      },
+      {
+        "name": "Content-Transfer-Encoding",
+        "value": "7bit"
+      }
+    ],
+    "body": {
+      "size": 52,
+      "data": "SGkhIEx1bmNoIG9uIFRodXJzZGF5IGF0IG5vb24_IFRoZSB1c3VhbCBwbGFjZS4KLS0gRA"
+    }
+  }
+}

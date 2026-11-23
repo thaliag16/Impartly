@@ -1,0 +1,67 @@
+{
+  "id": "19a0c0ffee000006",
+  "threadId": "19a0c0ffee000006",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_PROMOTIONS"
+  ],
+  "snippet": "Flash sale on invented gadgets",
+  "sizeEstimate": 2630,
+  "historyId": "900006",
+  "internalDate": "1795420800000",
+  "payload": {
+    "partId": "",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Mon, 23 Nov 2026 08:00:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 23 Nov 2026 08:00:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000006@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "Gadget Deals <deals@gadget-deals.example>"
+      },
+      {
+        "name": "Subject",
+        "value": "Flash sale"
+      },
+      {
+        "name": "List-Unsubscribe",
+        "value": "<https://gadget-deals.example/u>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"UTF-8\""
+      },
+      {
+        "name": "Content-Transfer-Encoding",
+        "value": "quoted-printable"
+      }
+    ],
+    "body": {
+      "size": 60,
+      "data": "PHA-Rmxhc2ggc2FsZSBvbiBpbnZlbnRlZCBnYWRnZXRzLCAzMCUgb2ZmIHVudGlsIFN1bmRheS48L3A-"
+    }
+  }
+}
