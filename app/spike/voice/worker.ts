@@ -6,8 +6,7 @@
 
 import { env } from "@huggingface/transformers";
 import { KokoroTTS } from "kokoro-js";
-
-const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
+import { KOKORO_CPU_DTYPE, KOKORO_MODEL_ID, renderBySentence } from "../../../lib/speech/kokoro";
 
 export type WorkerRequest =
   | { type: "load"; device: "wasm" | "webgpu"; threads: number }
@@ -38,8 +37,8 @@ self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
       });
 
       const began = performance.now();
-      tts = await KokoroTTS.from_pretrained(MODEL_ID, {
-        dtype: request.device === "webgpu" ? "fp32" : "q8",
+      tts = await KokoroTTS.from_pretrained(KOKORO_MODEL_ID, {
+        dtype: request.device === "webgpu" ? "fp32" : KOKORO_CPU_DTYPE,
         device: request.device,
         progress_callback: (info) => {
           if (info.status === "progress" && info.file.endsWith(".onnx")) {
@@ -52,17 +51,11 @@ self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
     }
 
     if (!tts) throw new Error("Model is not loaded");
-    for (let index = 0; index < request.sentences.length; index++) {
-      reply({ type: "progress", message: `Rendering sentence ${index + 1} of ${request.sentences.length}` });
-      const began = performance.now();
-      const result = await tts.generate(request.sentences[index], { voice: request.voice as never });
-      const seconds = (performance.now() - began) / 1000;
-      // Copy so the buffer can be handed to the page without sharing memory.
-      const audio = new Float32Array(result.audio);
-      reply(
-        { type: "sentence", index, audio, sampleRate: result.sampling_rate, seconds },
-        [audio.buffer],
-      );
+    const total = request.sentences.length;
+    reply({ type: "progress", message: `Rendering sentence 1 of ${total}` });
+    for await (const { index, audio, sampleRate, seconds } of renderBySentence(tts, request.sentences, request.voice)) {
+      if (index + 1 < total) reply({ type: "progress", message: `Rendering sentence ${index + 2} of ${total}` });
+      reply({ type: "sentence", index, audio, sampleRate, seconds }, [audio.buffer]);
     }
     reply({ type: "done" });
   } catch (error) {

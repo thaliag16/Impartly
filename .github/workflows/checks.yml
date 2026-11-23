@@ -73,3 +73,43 @@ jobs:
             test-results/
           retention-days: 14
           if-no-files-found: ignore
+
+  # Kokoro model tests (GOAL.md Phase 0). Separate job so the checks above stay fast.
+  # Model files come from the publisher's Hugging Face repository at the commit pinned in
+  # scripts/model-pins.json and are verified by SHA-256 before use (SECURITY.md). This job
+  # fails if the files cannot be fetched or verified; it never skips.
+  models:
+    name: Kokoro model tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      REQUIRE_MODELS: "1"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Keyed on the pins file, which holds the revision and every file's SHA-256, so a
+      # new pin gets a new cache. Cached files are re-verified by the next step anyway.
+      - name: Cache model files
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: models
+          key: models-${{ hashFiles('scripts/model-pins.json') }}
+
+      - name: Fetch and verify model files
+        run: npm run fetch:models
+
+      - name: Model tests
+        run: npm run test:models

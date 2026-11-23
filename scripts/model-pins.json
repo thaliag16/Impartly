@@ -1,0 +1,13 @@
+{
+  "kokoro": {
+    "repo": "onnx-community/Kokoro-82M-v1.0-ONNX",
+    "revision": null,
+    "pinnedFrom": null,
+    "files": [
+      { "path": "config.json", "sha256": null },
+      { "path": "tokenizer.json", "sha256": null },
+      { "path": "tokenizer_config.json", "sha256": null },
+      { "path": "onnx/model_quantized.onnx", "sha256": null }
+    ]
+  }
+}

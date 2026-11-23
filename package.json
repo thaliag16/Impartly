@@ -11,7 +11,9 @@
     "lint": "eslint --max-warnings 0 .",
     "test": "vitest run",
     "scan:secrets": "node scripts/scan-secrets.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "fetch:models": "node scripts/fetch-models.mjs",
+    "test:models": "vitest run --config vitest.models.config.mts"
   },
   "dependencies": {
     "kokoro-js": "1.2.1",

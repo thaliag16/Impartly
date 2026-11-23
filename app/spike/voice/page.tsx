@@ -6,6 +6,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { splitSentences } from "../../../lib/speech/sentences";
+import { encodeWav } from "../../../lib/speech/wav";
 import type { WorkerReply, WorkerRequest } from "./worker";
 
 const VOICES = [
@@ -35,37 +37,10 @@ const SAMPLE =
   "on new disclosure rules until next quarter. That is the end of your briefing.";
 
 // Kokoro cuts off long input, so it is always fed one sentence at a time.
-const SENTENCES = SAMPLE.match(/[^.!?]+[.!?]+/g)?.map((sentence) => sentence.trim()) ?? [SAMPLE];
+const SENTENCES = splitSentences(SAMPLE);
 
 function toWav(parts: Float32Array[], sampleRate: number): Blob {
-  const length = parts.reduce((sum, part) => sum + part.length, 0);
-  const buffer = new ArrayBuffer(44 + length * 2);
-  const view = new DataView(buffer);
-  const writeText = (offset: number, text: string) => {
-    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
-  };
-  writeText(0, "RIFF");
-  view.setUint32(4, 36 + length * 2, true);
-  writeText(8, "WAVE");
-  writeText(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeText(36, "data");
-  view.setUint32(40, length * 2, true);
-  let offset = 44;
-  for (const part of parts) {
-    for (let i = 0; i < part.length; i++) {
-      const clipped = Math.max(-1, Math.min(1, part[i]));
-      view.setInt16(offset, Math.round(clipped * 32767), true);
-      offset += 2;
-    }
-  }
-  return new Blob([buffer], { type: "audio/wav" });
+  return new Blob([encodeWav(parts, sampleRate)], { type: "audio/wav" });
 }
 
 export default function VoiceTest() {
