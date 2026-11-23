@@ -68,7 +68,13 @@ Thalia checks
 
 ### Phase 1: Pipeline
 Agent-checkable
-- [ ] Gmail adapter pulls newsletters read-only behind the mail adapter interface
+- [ ] Newsletter picker: the user searches for or pastes the newsletters they like
+      (e.g. TechCrunch, StrictlyVC, Morning Brew) and Impartly finds each one's public
+      source (official RSS/Atom feed first, else its public web archive)
+- [ ] New issues are fetched from those public sources on a schedule, de-duplicated, and
+      turned into clean text for the summarizer; paywalls and robots.txt are respected
+- [ ] The source layer sits behind one interface so forwarding and iPhone mail access can
+      plug in later
 - [ ] Scheduled pull runs at a user-set time via Supabase Cron
 - [ ] Summaries for 20 invented fixture newsletters pass the summary eval (section 4) at
       ≥ 90%
@@ -79,6 +85,12 @@ Agent-checkable
 
 Thalia checks
 - [ ] A week of real summaries I trust
+
+Decided 2026-11-23: public web sources come first because reading Gmail needs a Google
+"restricted" scope (7-day reconnects in testing, a paid annual security review to go
+public). The Gmail adapter already built stays in the repo as an optional source for
+self-hosters; it is not a Phase 1 gate. Later iterations add a forwarding address
+(for paid and private newsletters) and mail access in the iPhone app.
 
 ### Phase 2: Listen
 Agent-checkable

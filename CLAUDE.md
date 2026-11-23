@@ -1,7 +1,8 @@
 # Impartly
 
 ## What this is
-A web app that pulls newsletters from Gmail or Outlook on a schedule,
+A web app that pulls the newsletters a user picks from their public web sources
+(feeds and archives) on a schedule,
 summarizes them, renders audio with Kokoro, and lets the listener interrupt
 to ask questions by voice. The end state is a native iOS app that listens
 while the briefing plays. English first; other languages later. The
@@ -20,8 +21,11 @@ possible running cost.
 - Schema changes go through Supabase migrations, never ad hoc SQL.
 - Secrets live in Vercel env vars or Supabase Vault. Never in code, never in
   commits, never in example files. Treat this repository as public.
-- Mail access is read-only and sits behind one adapter interface, with a
-  Gmail implementation first and Outlook second.
+- Newsletters come in through one source interface. Public web sources first
+  (official feeds, then public archives). Respect robots.txt and site terms; never
+  get around a paywall or a sign-in. Forwarding and iPhone mail access come later.
+- Mail access, where used, is read-only and sits behind the mail adapter
+  (Gmail built, optional; Outlook later).
 - The summarizer sits behind one provider interface. No model name or vendor
   SDK call outside that module.
 - No briefing or answer audio plays while the mic is open (web app). The one
