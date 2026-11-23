@@ -40,4 +40,9 @@ Read GOAL.md before starting work. It holds the finish line, the done criteria
 for each phase and the improvement loop agents follow. Log work in PROGRESS.md.
 
 ## Current phase
-Phase 0: spike. Update this line when a gate passes.
+Phase 1: pipeline. Update this line when a gate passes.
+
+Phase 0's agent-checkable items pass in CI. Its Thalia sign-off items (model
+hash confirmation, the real iPhone test, real voice clips) are **paused, not
+passed**: Thalia moved work on to Phase 1 on 2026-11-23 without confirming
+them. They stay open in PROGRESS.md under "Paused, awaiting Thalia".
