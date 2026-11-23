@@ -1,5 +1,5 @@
 ## Status
-Phase: 0 | Checks: 6/7 passing, locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; eval:summaries deferred to Phase 1) | Summary eval: n/a | Last run: 2026-11-23
+Phase: 0 | Checks: 6/7 passing, locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; eval:summaries deferred to Phase 1) | Summary eval: n/a | Last run: 2026-11-23 (run 4)
 
 ## Questions for Thalia
 - The CI workflow assumed a public repo ("free for a public repo"), but the GitHub repo is currently private. On a private repo, Actions minutes count against the account's free quota (2,000 minutes a month on GitHub Free) instead of being unlimited. One run takes about 1.5 minutes and runs twice per push to a PR branch (push + pull_request), so normal use stays far inside the quota, but it is not unlimited until the repo goes public. OK as is, or should CI run on pull_request only (halves the minutes) until the repo is public?
@@ -14,7 +14,7 @@ Phase: 0 | Checks: 6/7 passing, locally and in CI (build, typecheck, lint, test,
 - Test first: the probe in `e2e/instrument.ts` now wraps `HTMLMediaElement.prototype.play`, so it watches every element the page plays, including detached `new Audio()` ones, and records any audible sound other than the briefing and the two cue elements while a mic track is live (`otherAudio`). New option `attackOthersOnMicOpen` / `attackOthers()` presses every Preview button and plays every player with controls, like a listener would. New test in `e2e/spike.e2e.ts`: a first ask leaves a recording; then with the recording playing and a Preview just tapped, a second ask; right after the mic opens and again mid-recording the probe tries every Preview and player; asserts no other sound with the mic open, Previews disabled while asking, and enabled again afterwards. Failed on the current spike for the right reason: Previews and the recording player played with the mic open, including sounds already playing when the mic opened.
 - Fix (`app/spike/page.tsx`): an `asking` state mirrors `busy` for rendering. `ask()` pauses any Preview and the recording player before opening the mic. Preview buttons are disabled while asking and their handler also returns if `busy`. The recording player is hidden while asking (native controls cannot be disabled; removing it also pauses it). Confirmed the test fails again with each guard removed on its own (no pause at ask start; Previews unguarded; recording player not hidden).
 - Checks before → after: 6/7 → 6/7 (5/5 UI tests now, was 4/4; eval:summaries deferred to Phase 1)
-- PR: see below
+- PR: #13
 - Next: the remaining Phase 0 items (Kokoro 60-second duration test in both voices, Moonshine WER on three fixture clips) need the pinned ONNX files from huggingface.co, which is blocked from the agent environment. They need either CI to fetch the pinned files (a workflow step, no secrets) or the files supplied another way; that route is still open in Questions-adjacent notes from run 3.
 
 ### 2026-11-23 run 3
