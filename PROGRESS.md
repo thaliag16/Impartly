@@ -25,7 +25,7 @@ Phase 0 agent-checkable: build/lint/typecheck/test passing; Kokoro 60 s duration
 - CI results: run 45223784160 (pinned) rendered af_heart 62.8 s and bm_daniel 61.9 s vs 60.0 s expected (+4.7%, +3.2%), and the control came out cut off at 26.4 s and was caught. It failed one check I had designed badly ("speech in the last quarter of each chunk"): Kokoro's fixed ~0.5 s tail fills most of a 2.4 s chunk's last quarter. Fix attempt 1 (of 3) replaced it with bounds on the tail in seconds (0.15–0.75 s). The upper bound already catches padded early stops, more tightly. Run 45224688520: both jobs green, 4/4 model tests, all files downloaded and SHA-256 verified.
 - New packages: none. actions/cache added to THIRD_PARTY_NOTICES.md.
 - Checks before → after: 6/7 → 6/7, plus the Kokoro model tests now passing in CI (unit tests 24 → 45; UI tests 5/5)
-- PR: (see below)
+- PR: #15
 - Next: Moonshine WER on three fixture clips (the last open agent-checkable Phase 0 item), using the same pinned fetch. Also open: pin and verify the app's runtime Kokoro download (speech-test route, browser worker, voice files), pending the Questions above.
 
 ### 2026-11-23 run 4
