@@ -21,8 +21,6 @@ export type SpeechSpan = {
   end: number;
   leadingSilence: number;
   trailingSilence: number;
-  /** Share of the chunk's last quarter that is speech (0 to 1). */
-  speechInLastQuarter: number;
 };
 
 const WINDOW_SECONDS = 0.02;
@@ -53,17 +51,15 @@ export function speechSpan(samples: Float32Array, sampleRate: number): SpeechSpa
   const first = voiced.indexOf(true);
   const last = voiced.lastIndexOf(true);
   if (first < 0) {
-    return { total, start: 0, end: 0, leadingSilence: total, trailingSilence: total, speechInLastQuarter: 0 };
+    return { total, start: 0, end: 0, leadingSilence: total, trailingSilence: total };
   }
   const start = first * WINDOW_SECONDS;
   const end = Math.min(total, (last + 1) * WINDOW_SECONDS);
-  const quarter = voiced.slice(Math.floor(voiced.length * 0.75));
   return {
     total,
     start,
     end,
     leadingSilence: start,
     trailingSilence: Math.max(0, total - end),
-    speechInLastQuarter: quarter.length ? quarter.filter(Boolean).length / quarter.length : 0,
   };
 }

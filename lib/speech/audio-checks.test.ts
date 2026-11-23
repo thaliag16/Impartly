@@ -39,14 +39,12 @@ describe("speechSpan", () => {
     expect(span.end - span.start).toBeCloseTo(1.4, 1);
   });
 
-  it("sees speech in the last quarter of a complete chunk", () => {
-    expect(speechSpan(signal([0.1, 0], [1.8, 0.3], [0.1, 0]), RATE).speechInLastQuarter).toBeGreaterThan(0.5);
+  it("shows a chunk whose speech stops early and is padded with silence", () => {
+    expect(speechSpan(signal([0.1, 0], [0.8, 0.3], [1.1, 0]), RATE).trailingSilence).toBeGreaterThan(1);
   });
 
-  it("flags a chunk whose speech stops early and is padded with silence", () => {
-    const span = speechSpan(signal([0.1, 0], [0.8, 0.3], [1.1, 0]), RATE);
-    expect(span.speechInLastQuarter).toBe(0);
-    expect(span.trailingSilence).toBeGreaterThan(1);
+  it("shows a chunk chopped off mid-sound as having no trailing silence", () => {
+    expect(speechSpan(signal([0.3, 0], [1.5, 0.3]), RATE).trailingSilence).toBeLessThan(0.05);
   });
 
   it("ignores quiet noise relative to speech, and reports pure silence as no speech", () => {
@@ -54,6 +52,5 @@ describe("speechSpan", () => {
     expect(span.leadingSilence).toBeCloseTo(0.5, 1);
     const silent = speechSpan(signal([1, 0.001]), RATE);
     expect(silent.end).toBe(0);
-    expect(silent.speechInLastQuarter).toBe(0);
   });
 });

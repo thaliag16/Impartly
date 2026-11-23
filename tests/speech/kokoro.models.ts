@@ -23,10 +23,12 @@ const VOICES = ["af_heart", "bm_daniel"] as const;
 
 /** Total duration may differ from words-per-minute expectation by this share. */
 const DURATION_TOLERANCE = 0.25;
-/** Silence allowed before the first and after the last speech in a sentence chunk. */
+/** Silence allowed before the first and after the last speech in a sentence chunk. A
+ * chunk whose speech stops early (text dropped, silence padded) fails the upper bound. */
 const MAX_EDGE_SILENCE_SECONDS = 0.75;
-/** A chunk whose speech stops early (text dropped, silence padded) fails this. */
-const MIN_SPEECH_IN_LAST_QUARTER = 0.25;
+/** Kokoro ends every utterance with a short silence (about 0.5 s). A chunk with almost
+ * none was chopped off mid-sound. */
+const MIN_TRAILING_SILENCE_SECONDS = 0.15;
 /** Each chunk's seconds per letter must be within this factor of the median chunk's. */
 const PACE_FACTOR = 2;
 
@@ -78,7 +80,6 @@ describe.skipIf(!verified.ok && !required)("Kokoro renders a 60-second sample wi
         seconds: Number(spans[i].total.toFixed(2)),
         lead: Number(spans[i].leadingSilence.toFixed(2)),
         tail: Number(spans[i].trailingSilence.toFixed(2)),
-        lastQuarter: Number(spans[i].speechInLastQuarter.toFixed(2)),
         pace: Number((paces[i] / medianPace).toFixed(2)),
       }));
       console.log(
@@ -95,7 +96,7 @@ describe.skipIf(!verified.ok && !required)("Kokoro renders a 60-second sample wi
         expect(span.end, `${label} has speech`).toBeGreaterThan(0);
         expect(span.leadingSilence, `${label} leading silence`).toBeLessThanOrEqual(MAX_EDGE_SILENCE_SECONDS);
         expect(span.trailingSilence, `${label} trailing silence`).toBeLessThanOrEqual(MAX_EDGE_SILENCE_SECONDS);
-        expect(span.speechInLastQuarter, `${label} speech in its last quarter`).toBeGreaterThanOrEqual(MIN_SPEECH_IN_LAST_QUARTER);
+        expect(span.trailingSilence, `${label} ends in Kokoro's normal tail, not mid-sound`).toBeGreaterThanOrEqual(MIN_TRAILING_SILENCE_SECONDS);
         expect(paces[i] / medianPace, `${label} pace vs median`).toBeLessThanOrEqual(PACE_FACTOR);
         expect(paces[i] / medianPace, `${label} pace vs median`).toBeGreaterThanOrEqual(1 / PACE_FACTOR);
       });
