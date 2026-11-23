@@ -14,7 +14,7 @@ Phase: 0 | Checks: 6/7 passing (build, typecheck, lint, test, test:e2e, scan:sec
 - Bug found and fixed: the exclusion test failed on the current spike. Between the mic opening and the start cue finishing, the status shows "Paused", so the on-screen Play button was enabled and restarted the briefing with the mic open; the Media Session "play" handler did the same at any point while listening. Fix: `start()` and the Media Session play handler now refuse to play while an ask is in progress (`busy`), and log "PLAY BLOCKED: the mic is open". Confirmed the test fails again if either guard is removed. Added `data-testid`s to the three audio elements on `/spike`.
 - No model downloads involved: the spike page builds its track and cues in the browser, so nothing was mocked or skipped. The Kokoro and Moonshine pages (`/spike/voice`) have no e2e tests yet because huggingface.co is blocked here.
 - Checks before → after: 5/7 → 6/7 (eval:summaries deferred to Phase 1)
-- PR: (see below)
+- PR: #11
 - Next: GitHub Actions CI running all six checks (approved for a later pass), so the Phase 0 items can pass "in CI". Also open: the cue Preview buttons can still play a cue while the mic is open (a cue sound, but not the start/end marker the CLAUDE.md exception covers); small fix plus test for a later pass.
 
 ### 2026-11-23 run 1
