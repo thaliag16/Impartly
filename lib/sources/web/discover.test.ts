@@ -4,6 +4,7 @@ import rawCatalog from "../../../data/newsletter-catalog.json";
 import { createFakeWeb, feedFixture, rss } from "../../../tests/web/fake-web";
 import { catalogLookup, loadCatalog, searchCatalog, validateCatalog, type CatalogEntry } from "./catalog";
 import { COMMON_FEED_PATHS, discoverFeed, feedLinksInHtml, latestDate, MAX_CANDIDATES, toUrl } from "./discover";
+import { createPacer } from "./archive-source";
 import { createWebFetcher } from "./fetcher";
 
 const html = (body: string) => ({ status: 200, headers: { "content-type": "text/html; charset=utf-8" }, body });
@@ -113,6 +114,53 @@ describe("discoverFeed", () => {
     });
     const r = await discoverFeed("Ledger", createWebFetcher(web), CATALOG);
     expect(r).toMatchObject({ ok: true, feed: { feedUrl: "https://ledger.example/atom.xml", format: "atom", catalogId: "invented-ledger" } });
+  });
+
+  it("an archive-only catalog entry reads its archive page and never tries the site's own feeds", async () => {
+    // A site-wide feed advertised on every page is not the newsletter (Fortune / Term Sheet,
+    // run 20): discovery must go straight to the archive the catalog names.
+    const sheet: CatalogEntry = {
+      id: "invented-sheet",
+      name: "Invented Sheet",
+      homepageUrl: "https://bigmag.example/newsletters/sheet/",
+      feedUrl: null,
+      archiveUrl: "https://bigmag.example/topic/invented-sheet/",
+      archiveOnly: true,
+      verified: false,
+    };
+    const siteFeed = '<link rel="alternate" type="application/rss+xml" href="https://bigmag.example/feed/">';
+    const web = createFakeWeb({
+      routes: {
+        "https://bigmag.example/newsletters/sheet/": html(siteFeed),
+        "https://bigmag.example/feed/": rss(feedFixture("rss-full.xml")),
+        "https://bigmag.example/topic/invented-sheet/": html(`${siteFeed}
+          <article><h2><a href="/2026/11/23/invented-sheet-recap/">Recap: an invented week</a></h2><time datetime="2026-11-23T12:00:00Z">Nov 23</time></article>
+          <article><h2><a href="/2026/11/20/invented-sheet-bellwether/">An invented bellwether</a></h2><time datetime="2026-11-20T12:00:00Z">Nov 20</time></article>`),
+      },
+    });
+    const r = await discoverFeed("Invented Sheet", createWebFetcher(web), [sheet], { pacer: createPacer({ sleep: async () => {} }) });
+    expect(r).toMatchObject({
+      ok: true,
+      feed: { format: "archive", feedUrl: "https://bigmag.example/topic/invented-sheet", catalogId: "invented-sheet", itemCount: 2, homepageUrl: "https://bigmag.example/newsletters/sheet/" },
+    });
+    const paths = web.requests.map((q) => q.url.pathname);
+    expect(paths).not.toContain("/feed/");
+    expect(paths).not.toContain("/newsletters/sheet/");
+    for (const p of COMMON_FEED_PATHS) expect(paths).not.toContain(p);
+  });
+
+  it("an archive-only entry whose archive lists nothing is no_feed, not the site's feed", async () => {
+    const sheet: CatalogEntry = { id: "invented-sheet", name: "Invented Sheet", homepageUrl: "https://bigmag.example/", feedUrl: null, archiveUrl: "https://bigmag.example/topic/invented-sheet/", archiveOnly: true, verified: false };
+    const web = createFakeWeb({
+      routes: {
+        "https://bigmag.example/": html('<link rel="alternate" type="application/rss+xml" href="/feed/">'),
+        "https://bigmag.example/feed/": rss(feedFixture("rss-full.xml")),
+        "https://bigmag.example/topic/invented-sheet/": html("<p>Nothing listed today.</p>"),
+      },
+    });
+    const r = await discoverFeed("invented-sheet", createWebFetcher(web), [sheet], { pacer: createPacer({ sleep: async () => {} }) });
+    expect(r).toMatchObject({ ok: false, reason: "no_feed" });
+    expect(web.requests.map((q) => q.url.pathname)).not.toContain("/feed/");
   });
 
   it("free text that is not in the catalog is not_found (no web search)", async () => {
@@ -235,10 +283,12 @@ describe("catalog", () => {
     expect(JSON.stringify(mb)).not.toMatch(/utm_|mbcid|[?&][a-z_]+=/i);
   });
 
-  it("Term Sheet stays as it is: unverified, no feed listed, not marked unavailable", () => {
+  it("Term Sheet reads Fortune's Term Sheet topic page as an archive only; the general Fortune feed is out of its path", () => {
     const ts = loadCatalog().find((e) => e.id === "fortune-term-sheet")!;
-    expect(ts).toMatchObject({ verified: false, feedUrl: null, homepageUrl: "https://fortune.com/newsletters/termsheet/" });
+    expect(ts).toMatchObject({ feedUrl: null, archiveUrl: "https://fortune.com/topic/term-sheet/", archiveOnly: true, homepageUrl: "https://fortune.com/newsletters/termsheet/" });
     expect(ts.unavailable).toBeUndefined();
+    expect(JSON.stringify(ts)).not.toContain("fortune-feeds");
+    expect(JSON.stringify(ts)).not.toMatch(/utm_|[?&][a-z_]+=/i);
   });
 
   it("Axios Pro Rata stays findable but is marked unavailable, with no feed and no archive", () => {
@@ -261,6 +311,10 @@ describe("catalog", () => {
     expect(validateCatalog({ entries: [{ ...base, verified: false, unavailable: "down" }] })).toEqual([expect.stringContaining("unavailable")]);
     expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "2026-11-24", verifiedRunId: 1, unavailable: "refuses_automated_access" }] })).toEqual([expect.stringContaining("unavailable")]);
     expect(validateCatalog({ entries: [{ ...base, verified: false, pickerNote: "x".repeat(201) }] })).toEqual([expect.stringContaining("pickerNote")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, archiveOnly: true }] })).toEqual([expect.stringContaining("archiveOnly")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, archiveOnly: true, archiveUrl: "https://a.example/archive", feedUrl: "https://a.example/feed" }] })).toEqual([expect.stringContaining("archiveOnly")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, archiveOnly: "yes", archiveUrl: "https://a.example/archive" }] })).toEqual([expect.stringContaining("archiveOnly")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, archiveOnly: true, archiveUrl: "https://a.example/archive" }] })).toEqual([]);
   });
 
   it("validation catches malformed entries", () => {

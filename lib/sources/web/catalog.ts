@@ -33,6 +33,12 @@ export interface CatalogEntry {
    * archive source). Absent: the homepage is checked as an archive if no feed is found.
    */
   archiveUrl?: string;
+  /**
+   * Discovery reads archiveUrl only and never tries feeds: set when the site's advertised
+   * and common-path feeds are site-wide articles, not this newsletter (Fortune's feed for
+   * Term Sheet). Needs archiveUrl and feedUrl null.
+   */
+  archiveOnly?: boolean;
   /** Where the feed URL came from, or why there is none. */
   note?: string;
 }
@@ -85,6 +91,12 @@ export function validateCatalog(data: unknown): string[] {
     }
     if (x.unavailable !== undefined && !(UNAVAILABLE_REASONS as readonly unknown[]).includes(x.unavailable)) {
       problems.push(`${at}.unavailable must be one of ${UNAVAILABLE_REASONS.join(", ")}`);
+    }
+    if (x.archiveOnly !== undefined) {
+      if (typeof x.archiveOnly !== "boolean") problems.push(`${at}.archiveOnly must be true or false`);
+      else if (x.archiveOnly && (typeof x.archiveUrl !== "string" || x.feedUrl !== null)) {
+        problems.push(`${at}.archiveOnly needs an archiveUrl and feedUrl null`);
+      }
     }
     if (x.pickerNote !== undefined && (typeof x.pickerNote !== "string" || !x.pickerNote.trim() || x.pickerNote.length > 200)) {
       problems.push(`${at}.pickerNote must be 1 to 200 characters`);

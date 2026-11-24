@@ -150,8 +150,10 @@
       "aliases": ["Fortune Term Sheet"],
       "homepageUrl": "https://fortune.com/newsletters/termsheet/",
       "feedUrl": null,
+      "archiveUrl": "https://fortune.com/topic/term-sheet/",
+      "archiveOnly": true,
       "verified": false,
-      "note": "Unverified. Discovery finds a Fortune feed (https://fortune.com/feed/fortune-feeds/?id=3230629) from this page, but the live check showed feed title \"Fortune FORTUNE\" and general Fortune articles, not Term Sheet issues, so it is not listed here. May be partly paywalled; anything behind it is not read."
+      "note": "Unverified. archiveUrl is Fortune's Term Sheet topic page (source from Thalia, 2026-11-24), which lists Term Sheet items, each on its own Fortune article page. archiveOnly: the feed Fortune advertises on its pages is general Fortune articles (feed title \"Fortune FORTUNE\" in the live check), not Term Sheet, so discovery never tries feeds for this entry. Fortune may meter or paywall articles; anything behind that is not read and the issue is marked partial."
     }
   ]
 }
