@@ -5,8 +5,8 @@ their own licenses. Add a row here whenever one is added.
 
 | Component | Used for | License | Source |
 | --- | --- | --- | --- |
-| Kokoro-82M | Text to speech | Apache 2.0 (weights) | https://huggingface.co/hexgrad/Kokoro-82M |
-| Moonshine Base (English) | Speech to text (`lib/speech/moonshine.ts`); ONNX conversion `onnx-community/moonshine-base-ONNX` at a pinned commit (fp32 encoder, q4 decoder), fetched in CI and never committed | MIT (Moonshine); the conversion repo's license is to be confirmed on Hugging Face | https://github.com/moonshine-ai/moonshine, https://huggingface.co/onnx-community/moonshine-base-ONNX |
+| Kokoro-82M | Text to speech; ONNX conversion `onnx-community/Kokoro-82M-v1.0-ONNX` at a pinned commit (8-bit model), hashes in `scripts/model-pins.json` confirmed by Thalia against Hugging Face on 2026-11-24 | Apache 2.0 (weights) | https://huggingface.co/hexgrad/Kokoro-82M |
+| Moonshine Base (English) | Speech to text (`lib/speech/moonshine.ts`); ONNX conversion `onnx-community/moonshine-base-ONNX` at a pinned commit (fp32 encoder, q4 decoder), fetched in CI and never committed; hashes confirmed by Thalia against Hugging Face on 2026-11-24 | MIT (Moonshine); the conversion repo's license is to be confirmed on Hugging Face | https://github.com/moonshine-ai/moonshine, https://huggingface.co/onnx-community/moonshine-base-ONNX |
 | Next.js | App framework | MIT | https://github.com/vercel/next.js |
 | React | User interface library | MIT | https://github.com/facebook/react |
 | TypeScript | Build-time language tooling | Apache 2.0 | https://github.com/microsoft/TypeScript |

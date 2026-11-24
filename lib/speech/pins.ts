@@ -1,8 +1,8 @@
 // The exact Kokoro files the app may load at runtime, each with its SHA-256.
 //
 // Model files: the revision and hashes in scripts/model-pins.json (the same pins the CI
-// model tests verify). Those are trust-on-first-use, still awaiting Thalia's
-// confirmation (PROGRESS.md, "Paused, awaiting Thalia (Phase 0)").
+// model tests verify), pinned from the first CI fetch and confirmed by Thalia against
+// Hugging Face on 2026-11-24.
 //
 // Voice files: the two voices Impartly offers. Their SHA-256 values are those of the
 // files shipped in the kokoro-js 1.2.1 npm package (pinned by integrity hash in

@@ -48,11 +48,11 @@ Phase 2: listen. Update this line when a gate passes.
 
 Thalia started Phase 2 on 2026-11-24 ("Start!"). Earlier phases are **paused,
 not passed**:
-- Phase 0's agent-checkable items pass in CI. Its Thalia sign-off items (model
-  hash confirmation, the real iPhone test, real voice clips) were paused on
-  2026-11-23.
+- Phase 0's agent-checkable items pass in CI. Its Thalia sign-off items (the
+  real iPhone test, real voice clips) were paused on 2026-11-23. The model
+  hashes were confirmed by Thalia on 2026-11-24.
 - Phase 1's agent-checkable items pass in CI except the two that need a real
   summary model (the summary eval at 90% or more and the prompt-injection
-  fixtures, both waiting on SUMMARY_API_KEY). Those two, her week of real
-  summaries and the Term Sheet answer were paused on 2026-11-24.
+  fixtures, both waiting on SUMMARY_API_KEY). Those two and her week of real
+  summaries were paused on 2026-11-24.
 All of them stay open in PROGRESS.md under "Paused, awaiting Thalia".
