@@ -1,5 +1,5 @@
 ## Status
-Phase: 1 | Checks: 6/7 passing locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; run 15 CI runs RUNPLACEHOLDER green) + `eval:summaries` set up but **no model evaluated yet** (harness self-test passes; a real score needs the SUMMARY_API_KEY secret, see Questions) + speech model tests passing in CI + RLS, Vault, pipeline, web-feed, web-archive and scheduled-pull tests on real Postgres inside `npm test` | Summary eval: n/a (no model run yet) | Last run: 2026-11-23 (run 15) | Plan changed 2026-11-23: Phase 1 now fetches user-picked newsletters from public web sources; Gmail optional
+Phase: 1 | Checks: 6/7 passing locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; run 15 CI runs 45334189800 and 45334179379 green) + `eval:summaries` set up but **no model evaluated yet** (harness self-test passes; a real score needs the SUMMARY_API_KEY secret, see Questions) + speech model tests passing in CI + RLS, Vault, pipeline, web-feed, web-archive and scheduled-pull tests on real Postgres inside `npm test` | Summary eval: n/a (no model run yet) | Last run: 2026-11-23 (run 15) | Plan changed 2026-11-23: Phase 1 now fetches user-picked newsletters from public web sources; Gmail optional
 
 Phase 1 started 2026-11-23 on Thalia's instruction (relayed by the session lead): "I can't confirm right now so let's put the confirmation on pause and continue the phases with the same recursive self-improvement loops." Phase 0's agent-checkable items all pass in CI; its Thalia items are **paused, not passed** (below).
 
@@ -133,7 +133,7 @@ Your iPhone check, "Tap-to-ask plays and records cleanly on a real iPhone":
   - Mutations: dropping the unavailable check failed 2 picker tests. Flipping Morning Brew to verified with a run id failed the pinned-list test.
 - New packages: none. Paid dependency: none. No secret, no new env name, no migration.
 - **Checks before → after:** 6/7 → 6/7 locally. Unit and database tests 838 → 846, UI tests 20 → 21. Build, typecheck, lint and secret scan pass, and the eval self-test passes.
-- CI result: CIRESULTPLACEHOLDER
+- CI result (no fix attempts needed): runs 45334189800 (pull_request) and 45334179379 (push) on `agent/phase1-catalog-verify` are green: build, typecheck, lint, unit and database tests, UI tests, secret scan, and the speech model tests. The summary-eval job skipped as designed. Catalog check run 45334189528 on the final catalog: 12 of 14 feeds, The Generalist's listed feed URL matches, and Axios Pro Rata still gets 403. The report run the catalog cites is 45333404039.
 - PR: #26
 - Next: the real summary eval once SUMMARY_API_KEY exists, or Thalia's answer on StrictlyVC, Morning Brew and Term Sheet.
 
