@@ -7,6 +7,8 @@
 import { env } from "@huggingface/transformers";
 import { KokoroTTS } from "kokoro-js";
 import { KOKORO_CPU_DTYPE, KOKORO_MODEL_ID, renderBySentence } from "../../../lib/speech/kokoro";
+import { createPinnedFiles, memoryStore, restrictToPinnedModels } from "../../../lib/speech/pinned-files";
+import { KOKORO_PINNED_FILES } from "../../../lib/speech/pins";
 import { splitSentences } from "../../../lib/speech/sentences";
 import { encodeWav } from "../../../lib/speech/wav";
 
@@ -14,11 +16,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-// TODO before Phase 2: load the revision pinned in scripts/model-pins.json and verify
-// the file hashes at runtime too (the model tests already do).
-
-// Vercel Functions can only write to /tmp.
-env.cacheDir = "/tmp/impartly-models";
+// The model loads only from the commit pinned in scripts/model-pins.json, each file
+// checked by SHA-256 (lib/speech/pinned-files.ts). Verified bytes stay in memory for the
+// life of the function instance. Voices come from the kokoro-js npm package, which
+// package-lock.json pins by integrity hash.
+const pinned = createPinnedFiles({
+  files: KOKORO_PINNED_FILES,
+  fetch: (input, init) => fetch(input, init),
+  subtle: globalThis.crypto.subtle,
+  store: memoryStore(),
+});
+restrictToPinnedModels(env as unknown as Record<string, unknown>, pinned);
 
 // About 150 words, written the way a spoken summary would be.
 const SAMPLE =

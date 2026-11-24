@@ -6,7 +6,7 @@ import type { KokoroTTS } from "kokoro-js";
 import { splitSentences } from "./sentences";
 
 /** Hugging Face repository kokoro-js loads. The pinned revision and file hashes live in
- * scripts/model-pins.json; the app's runtime download is not pinned yet (see PROGRESS.md). */
+ * scripts/model-pins.json; the app loads them only through lib/speech/pinned-files.ts. */
 export const KOKORO_MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
 /** 8-bit quantized weights (onnx/model_quantized.onnx) on CPU and WASM. */
 export const KOKORO_CPU_DTYPE = "q8";

@@ -75,7 +75,7 @@ const TABLES: TableSpec[] = [
     name: "user_settings",
     access: "own-rw",
     key: "user_id",
-    readCols: "user_id, delivery_time, timezone, summary_length, voice, speed",
+    readCols: "user_id, delivery_time, timezone, summary_length, voice, speed, feed_order",
     update: ["summary_length", "deep"],
   },
   {

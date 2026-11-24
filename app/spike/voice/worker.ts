@@ -7,6 +7,22 @@
 import { env } from "@huggingface/transformers";
 import { KokoroTTS } from "kokoro-js";
 import { KOKORO_CPU_DTYPE, KOKORO_MODEL_ID, renderBySentence } from "../../../lib/speech/kokoro";
+import { cacheApiStore, createPinnedFiles, pinnedFetch, restrictToPinnedModels } from "../../../lib/speech/pinned-files";
+import { KOKORO_PINNED_FILES } from "../../../lib/speech/pins";
+
+// Every model and voice file comes from the pinned commit and is checked by SHA-256
+// before use (lib/speech/pinned-files.ts). kokoro-js fetches voices with the global
+// fetch, so the worker's fetch is replaced by one that only serves pinned files; its own
+// voice cache is cleared so nothing unverified from an earlier visit is used.
+const networkFetch = self.fetch.bind(self);
+const pinned = createPinnedFiles({
+  files: KOKORO_PINNED_FILES,
+  fetch: networkFetch,
+  subtle: self.crypto.subtle,
+  store: typeof caches === "undefined" ? undefined : cacheApiStore(caches, "impartly-models-v1"),
+});
+restrictToPinnedModels(env as unknown as Record<string, unknown>, pinned);
+self.fetch = pinnedFetch(pinned, networkFetch);
 
 export type WorkerRequest =
   | { type: "load"; device: "wasm" | "webgpu"; threads: number }
@@ -29,6 +45,12 @@ self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
   try {
     if (request.type === "load") {
+      if (request.device === "webgpu") {
+        // The graphics-chip path loads the full-precision onnx/model.onnx, which is not
+        // pinned yet (only the 8-bit model is). Refuse rather than load it unverified.
+        throw new Error("The graphics-chip model is not pinned yet; use a Standard option");
+      }
+      if (typeof caches !== "undefined") await caches.delete("kokoro-voices");
       const wasm = (env.backends.onnx as { wasm?: { numThreads?: number } }).wasm;
       if (wasm) wasm.numThreads = request.threads;
       reply({
@@ -38,7 +60,7 @@ self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
 
       const began = performance.now();
       tts = await KokoroTTS.from_pretrained(KOKORO_MODEL_ID, {
-        dtype: request.device === "webgpu" ? "fp32" : KOKORO_CPU_DTYPE,
+        dtype: KOKORO_CPU_DTYPE,
         device: request.device,
         progress_callback: (info) => {
           if (info.status === "progress" && info.file.endsWith(".onnx")) {
@@ -59,6 +81,7 @@ self.addEventListener("message", async (event: MessageEvent<WorkerRequest>) => {
     }
     reply({ type: "done" });
   } catch (error) {
-    reply({ type: "error", message: `${(error as Error).name}: ${(error as Error).message}` });
+    const pins = pinned.failures.length ? ` (pinned files: ${pinned.failures.join("; ")})` : "";
+    reply({ type: "error", message: `${(error as Error).name}: ${(error as Error).message}${pins}` });
   }
 });
