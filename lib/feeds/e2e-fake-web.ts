@@ -54,6 +54,18 @@ const ROUTES: Record<string, Canned> = {
   "https://robots-blocked.example/robots.txt": { status: 200, headers: TEXT, body: "User-agent: *\nDisallow: /\n" },
   "https://no-feed.example/": { status: 200, headers: HTML, body: "<!doctype html><html><head><title>Invented</title></head><body>No feed here</body></html>" },
   "https://refused.example/": { status: 403, headers: HTML, body: "Forbidden" },
+  // No feed anywhere: its homepage lists issues, so discovery offers the archive fallback.
+  "https://archive-only.example/": {
+    status: 200,
+    headers: HTML,
+    body: `<!doctype html><html><head><title>Home</title><meta property="og:site_name" content="Invented Archive Weekly"></head><body>
+<nav><a href="/about">About this invented newsletter</a><a href="/subscribe">Subscribe to the invented list</a></nav>
+<main><h1>Past issues</h1>
+<article><h2><a href="/issues/42-invented-robots">Issue 42: Invented robots raise a round</a></h2><time datetime="2026-11-22T08:00:00Z">Nov 22</time></article>
+<article><h2><a href="/issues/41-invented-chips">Issue 41: Invented chips get cheaper</a></h2><time datetime="2026-11-15T08:00:00Z">Nov 15</time></article>
+<article><h2><a href="https://elsewhere.example/sponsored">A sponsor on another site</a></h2></article>
+</main></body></html>`,
+  },
 };
 
 /** Names that resolve to a private address, to show the address check still applies. */

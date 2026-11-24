@@ -10,7 +10,7 @@
 // 403 and 451 are returned as they are, never worked around).
 
 import { SourceFetchError } from "../types";
-import { policyAllows, policyFromResponse, ROBOTS_MAX_BYTES, type RobotsPolicy } from "./robots";
+import { policyAllows, policyFromResponse, robotsExtras, ROBOTS_MAX_BYTES, type RobotsExtras, type RobotsPolicy } from "./robots";
 import { decodeBody, safeFetch, type SafeFetchDeps, type SafeResponse } from "./safe-fetch";
 
 export const REPO_URL = "https://github.com/thaliag16/impartly";
@@ -38,16 +38,24 @@ export interface GetOptions {
   /** Conditional GET validators. */
   etag?: string | null;
   lastModified?: string | null;
+  /**
+   * Checked for every hop (redirects included), before robots.txt: return a short error code
+   * to refuse that URL (e.g. a redirect to a sign-in page or another site), or null.
+   */
+  refuseHop?: (url: URL) => string | null;
 }
 
 export interface WebFetcher {
   get(url: string | URL, options: GetOptions): Promise<FetchedText>;
+  /** Crawl-delay and Sitemap lines from the site's robots.txt (read once per origin). */
+  siteInfo?(url: string | URL): Promise<RobotsExtras>;
 }
 
 export function createWebFetcher(deps: SafeFetchDeps = {}): WebFetcher {
   // An unreadable robots.txt (5xx, network error, timeout, too large) means "disallow
   // all" (RFC 9309); `reason` keeps the underlying code so the error says why.
-  type Checked = { policy: RobotsPolicy; reason?: string };
+  type Checked = { policy: RobotsPolicy; reason?: string; extras: RobotsExtras };
+  const NO_EXTRAS: RobotsExtras = { crawlDelaySeconds: null, sitemaps: [] };
   const robots = new Map<string, Promise<Checked>>();
 
   const robotsFor = (url: URL): Promise<Checked> => {
@@ -66,13 +74,15 @@ export function createWebFetcher(deps: SafeFetchDeps = {}): WebFetcher {
             },
             deps,
           );
-          const policy = policyFromResponse(res.status, decodeBody(res.body, res.headers["content-type"]), ROBOTS_TOKEN);
-          return policy.kind === "disallow-all" ? { policy, reason: "robots_unreachable" } : { policy };
+          const text = decodeBody(res.body, res.headers["content-type"]);
+          const policy = policyFromResponse(res.status, text, ROBOTS_TOKEN);
+          const extras = res.status >= 200 && res.status < 300 ? robotsExtras(text, ROBOTS_TOKEN) : NO_EXTRAS;
+          return policy.kind === "disallow-all" ? { policy, reason: "robots_unreachable", extras } : { policy, extras };
         } catch (err) {
           // Over 500 KiB: RFC 9309 lets a crawler parse only the first part, but safeFetch
           // keeps no partial read, so it counts as unreachable (disallow) too.
           const code = err instanceof SourceFetchError ? err.code : "network_error";
-          return { policy: { kind: "disallow-all" }, reason: code };
+          return { policy: { kind: "disallow-all" }, reason: code, extras: NO_EXTRAS };
         }
       })();
       robots.set(origin, p);
@@ -93,6 +103,9 @@ export function createWebFetcher(deps: SafeFetchDeps = {}): WebFetcher {
           timeoutMs: LIMITS.timeoutMs,
           maxRedirects: LIMITS.maxRedirects,
           beforeRequest: async (u) => {
+            // The caller's refusal comes first, so a refused site is not even asked for robots.txt.
+            const refused = options.refuseHop?.(u);
+            if (refused) throw new SourceFetchError(refused);
             const checked = await robotsFor(u);
             if (!policyAllows(checked.policy, u)) throw new SourceFetchError(checked.reason ?? "robots_disallowed");
           },
@@ -105,6 +118,9 @@ export function createWebFetcher(deps: SafeFetchDeps = {}): WebFetcher {
         headers: res.headers,
         text: res.status === 304 ? "" : decodeBody(res.body, res.headers["content-type"]),
       };
+    },
+    async siteInfo(url) {
+      return (await robotsFor(new URL(url))).extras;
     },
   };
 }

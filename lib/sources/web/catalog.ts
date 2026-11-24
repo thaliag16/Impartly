@@ -17,6 +17,11 @@ export interface CatalogEntry {
   /** The official feed, if known. null: discover from the homepage. */
   feedUrl: string | null;
   verified: boolean;
+  /**
+   * The newsletter's public archive page, for newsletters with no feed (read by the
+   * archive source). Absent: the homepage is checked as an archive if no feed is found.
+   */
+  archiveUrl?: string;
   /** Where the feed URL came from, or why there is none. */
   note?: string;
 }
@@ -41,9 +46,10 @@ export function validateCatalog(data: unknown): string[] {
     else if (ids.has(x.id)) problems.push(`${at}.id ${x.id} is duplicated`);
     else ids.add(x.id);
     if (typeof x.name !== "string" || !x.name.trim()) problems.push(`${at}.name is missing`);
-    for (const key of ["homepageUrl", "feedUrl"] as const) {
+    for (const key of ["homepageUrl", "feedUrl", "archiveUrl"] as const) {
       const v = x[key];
       if (key === "feedUrl" && v === null) continue;
+      if (key === "archiveUrl" && v === undefined) continue;
       if (typeof v !== "string" || !/^https:\/\/[^\s/]+\.[^\s/]+/.test(v)) problems.push(`${at}.${key} must be an https URL`);
     }
     if (typeof x.verified !== "boolean") problems.push(`${at}.verified must be true or false`);

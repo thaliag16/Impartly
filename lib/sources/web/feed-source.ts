@@ -23,9 +23,9 @@ export const FEED_ACCEPT =
 /** Below this many characters, an item with no full content is treated as an excerpt. */
 export const EXCERPT_MAX_CHARS = 1000;
 
-const PAYWALL =
+export const PAYWALL =
   /\b(?:(?:subscribe|upgrade|sign in|log in|become a (?:paid )?(?:subscriber|member))(?: now)? to (?:continue|keep) reading|keep reading with a \d+-day free trial|this (?:post|article|story|issue|newsletter|edition) is (?:only )?(?:for|available to) (?:paid|paying|premium) (?:subscribers|members)|(?:paid|premium) subscribers only|subscribers only|members only|read the full (?:story|article|issue|post) (?:on|at)|continue reading (?:on|at) )/i;
-const TRUNCATED_END = /(?:…|\.\.\.|\[…\]|\[\.\.\.\]|\bread more|\bcontinue reading|\bread the rest)\s*[.»›>)\]]*\s*$/i;
+export const TRUNCATED_END = /(?:…|\.\.\.|\[…\]|\[\.\.\.\]|\bread more|\bcontinue reading|\bread the rest)\s*[.»›>)\]]*\s*$/i;
 
 export interface StoredFeed {
   id: string;

@@ -210,7 +210,9 @@ export function Picker({
         ) : null}
         {preview ? (
           <section className="px-card-green" aria-label={`Found: ${preview.title}`} data-testid="preview">
-            <span className="px-label">Found a public feed</span>
+            <span className="px-label" data-testid="preview-kind">
+              {preview.kind === "archive" ? "No feed. Found a public archive" : "Found a public feed"}
+            </span>
             <h3 className="px-h2">{preview.title}</h3>
             <dl className="px-row" style={{ margin: 0, gap: "4px 16px" }}>
               <dt className="px-label">Site</dt>
@@ -219,9 +221,24 @@ export function Picker({
               <dd style={{ margin: 0 }} data-testid="preview-last-issue">
                 {formatDate(preview.lastIssueAt)}
               </dd>
-              <dt className="px-label">Issues in feed</dt>
+              <dt className="px-label">{preview.kind === "archive" ? "Issues listed" : "Issues in feed"}</dt>
               <dd style={{ margin: 0 }}>{preview.itemCount}</dd>
             </dl>
+            {preview.kind === "archive" && preview.issues?.length ? (
+              <>
+                <p className="px-body">
+                  Impartly will read new issues from this page, a few at a time. Paywalled issues are marked as previews.
+                </p>
+                <ul className="px-list" aria-label="Issues found" data-testid="preview-issues">
+                  {preview.issues.map((i, n) => (
+                    <li key={n}>
+                      <span className="px-grow">{i.title}</span>
+                      {i.publishedAt ? <span className="px-label">{formatDate(i.publishedAt)}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
             {added ? (
               <p className="px-body">Already in your list.</p>
             ) : (

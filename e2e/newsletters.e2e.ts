@@ -3,7 +3,7 @@
 // fetcher (lib/feeds/e2e-fake-web.ts). Nothing leaves the machine.
 //
 // Covers: the empty state's catalog picks; search → check → add → switch off → remove;
-// pasting a domain; keyboard-only use; the error states (not in the catalog, robots.txt,
+// pasting a domain; a site with no feed offered as a public archive; keyboard-only use; the error states (not in the catalog, robots.txt,
 // a private address, a site refusing, rate-limited); and on every screen state, axe-core
 // (WCAG 2.1 A/AA), 44px targets and at most one watermelon control.
 
@@ -19,7 +19,7 @@ async function resetFake(page: Page) {
   expect(r.ok()).toBe(true);
 }
 
-async function storedFeeds(page: Page): Promise<{ feed_url: string; title: string; included: boolean; catalog_id: string | null }[]> {
+async function storedFeeds(page: Page): Promise<{ feed_url: string; feed_format: string; title: string; included: boolean; catalog_id: string | null }[]> {
   return (await (await page.request.get(`${FAKE_SUPABASE}/__e2e/state`)).json()).feeds;
 }
 
@@ -132,6 +132,29 @@ test("a pasted domain finds the feed; adding the same newsletter again keeps one
   await expect(page.getByTestId("add")).toHaveCount(0);
   await expect(page.getByTestId("find")).toHaveCSS("background-color", WATERMELON_RGB);
   expect(await storedFeeds(page)).toHaveLength(1);
+});
+
+test("a site with no feed offers its public archive: the preview lists the issues found, and Add stores the archive page", async ({ page }) => {
+  await page.getByLabel("Name or website").fill("archive-only.example");
+  await page.getByTestId("find").click();
+  const preview = page.getByTestId("preview");
+  await expect(preview.getByRole("heading", { name: "Invented Archive Weekly" })).toBeVisible();
+  await expect(page.getByTestId("preview-kind")).toHaveText("No feed. Found a public archive");
+  const issues = page.getByRole("list", { name: "Issues found" });
+  await expect(issues.getByRole("listitem")).toHaveCount(2); // the off-site link is not an issue
+  await expect(issues.getByText("Issue 42: Invented robots raise a round")).toBeVisible();
+  await expect(page.getByTestId("preview-last-issue")).toHaveText("Nov 22, 2026");
+  await expect(page.getByTestId("add")).toHaveCSS("background-color", WATERMELON_RGB);
+  await checkScreen(page, "archive preview");
+  expect(await storedFeeds(page)).toEqual([]);
+
+  await page.getByTestId("add").click();
+  await expect(page.getByTestId("picker-done")).toHaveText("Added Invented Archive Weekly.");
+  const stored = await storedFeeds(page);
+  expect(stored).toHaveLength(1);
+  expect(stored[0]).toMatchObject({ feed_url: "https://archive-only.example/", feed_format: "archive", included: true });
+  await expect(page.getByTestId("feed-row").filter({ hasText: "Invented Archive Weekly" })).toBeVisible();
+  await checkScreen(page, "list with an archive");
 });
 
 test("works with the keyboard alone: type, Enter to find, Tab to Add, Space to switch", async ({ page }) => {

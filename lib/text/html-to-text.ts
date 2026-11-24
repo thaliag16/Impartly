@@ -207,7 +207,7 @@ function backgroundColor(s: Style): string | undefined {
 
 // ---- Stylesheet rules ---------------------------------------------------------------------
 
-interface HidingRule {
+export interface HidingRule {
   tag?: string;
   ids: string[];
   classes: string[];
@@ -275,15 +275,50 @@ interface Inherited {
 
 const WHITE: [number, number, number] = [255, 255, 255];
 
-/** Plain text a reader would see, for the summarizer. */
-export function htmlToText(html: string, options: { maxChars?: number } = {}): TextResult {
-  const doc = parse(html);
+export interface HtmlToTextOptions {
+  maxChars?: number;
+  /**
+   * Walk only this element of the parsed document (e.g. a web page's main article). The
+   * rest of the document still counts: its <style> rules apply, and if an ancestor of the
+   * element is hidden the result is empty. Null or absent: the whole document.
+   */
+  root?: (doc: T.Document) => T.Element | null;
+  /** Leave out elements this returns true for (e.g. a share bar inside an article). */
+  skip?: (el: T.Element) => boolean;
+}
+
+/** The hiding rules from every <style> block in a parsed document. */
+export function documentHidingRules(doc: T.Node): HidingRule[] {
   const css: string[] = [];
   collectStyles(doc, css);
-  const rules = hidingRules(css.join("\n"));
+  return hidingRules(css.join("\n"));
+}
+
+/** Whether this element itself is hidden from a reader (attributes, inline style, <style> rules). */
+export function isHiddenElement(el: T.Element, rules: readonly HidingRule[]): boolean {
+  if (attr(el, "hidden") !== undefined) return true;
+  if ((attr(el, "aria-hidden") ?? "").toLowerCase() === "true") return true;
+  if (el.tagName === "input" && (attr(el, "type") ?? "").toLowerCase() === "hidden") return true;
+  if (styleHides(parseStyle(attr(el, "style") ?? ""))) return true;
+  return rules.some((r) => matchesRule(el, r));
+}
+
+/** Plain text a reader would see, for the summarizer. */
+export function htmlToText(html: string, options: HtmlToTextOptions = {}): TextResult {
+  const doc = parse(html);
+  const rules = documentHidingRules(doc);
 
   const out: string[] = [];
   const newline = () => out.push("\n");
+
+  const inherit = (node: T.Element, inherited: Inherited, style: Style): Inherited => {
+    const next: Inherited = { ...inherited };
+    const color = parseColor(style.get("color")) ?? (node.tagName === "font" ? parseColor(attr(node, "color")) : null);
+    if (color) next.color = color;
+    const bg = parseColor(backgroundColor(style)) ?? parseColor(attr(node, "bgcolor"));
+    if (bg) next.background = bg;
+    return next;
+  };
 
   const walk = (node: T.ChildNode, inherited: Inherited) => {
     if (node.nodeName === "#text") {
@@ -302,18 +337,10 @@ export function htmlToText(html: string, options: { maxChars?: number } = {}): T
 
     const tag = node.tagName;
     if (SKIP.has(tag)) return;
-    if (attr(node, "hidden") !== undefined) return;
-    if ((attr(node, "aria-hidden") ?? "").toLowerCase() === "true") return;
+    if (isHiddenElement(node, rules)) return;
+    if (options.skip?.(node)) return;
 
-    const style = parseStyle(attr(node, "style") ?? "");
-    if (styleHides(style)) return;
-    if (rules.some((r) => matchesRule(node, r))) return;
-
-    const next: Inherited = { ...inherited };
-    const color = parseColor(style.get("color")) ?? (tag === "font" ? parseColor(attr(node, "color")) : null);
-    if (color) next.color = color;
-    const bg = parseColor(backgroundColor(style)) ?? parseColor(attr(node, "bgcolor"));
-    if (bg) next.background = bg;
+    const next = inherit(node, inherited, parseStyle(attr(node, "style") ?? ""));
 
     if (tag === "br") {
       newline();
@@ -327,7 +354,21 @@ export function htmlToText(html: string, options: { maxChars?: number } = {}): T
     if (block) newline();
   };
 
-  for (const child of doc.childNodes) walk(child, { background: WHITE });
+  const root = options.root?.(doc) ?? null;
+  if (!root) {
+    for (const child of doc.childNodes) walk(child, { background: WHITE });
+    return finish(out.join(""), options.maxChars);
+  }
+  // Ancestors of the chosen element, outermost first: any hidden one hides it all, and
+  // their colours carry down.
+  const chain: T.Element[] = [];
+  for (let n: T.ParentNode | null = root.parentNode; n && "tagName" in n; n = (n as T.Element).parentNode) chain.unshift(n as T.Element);
+  let inherited: Inherited = { background: WHITE };
+  for (const a of chain) {
+    if (SKIP.has(a.tagName) || isHiddenElement(a, rules)) return finish("", options.maxChars);
+    inherited = inherit(a, inherited, parseStyle(attr(a, "style") ?? ""));
+  }
+  walk(root, inherited);
   return finish(out.join(""), options.maxChars);
 }
 

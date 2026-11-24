@@ -8,6 +8,11 @@
 //   3. If it is an HTML page: its <link rel="alternate"> feeds (RSS or Atom), in order.
 //   4. Else common feed paths on the same site: /feed (WordPress, Substack), /rss (Ghost,
 //      beehiiv custom domains), /feed.xml, /rss.xml, /atom.xml, /index.xml (Hugo).
+//   5. No feed: the public web archive fallback (archive-source.ts). The catalog's
+//      archiveUrl if it has one, else the first HTML page seen, is checked for issue links
+//      (JSON-LD, an advertised sitemap, <article> markup, then conservative same-site
+//      links). A page that lists issues is returned as format "archive" with a preview of
+//      the issues found. At most ARCHIVE_EXTRA_FETCHES more requests, spaced politely.
 // Every candidate is fetched through the polite fetcher (robots.txt, SSRF checks, limits)
 // and must parse as RSS or Atom to count. At most MAX_CANDIDATES fetches per discovery.
 // The result is never trusted on the user's word: the stored feed URL is the one that
@@ -15,6 +20,8 @@
 
 import { parse, type DefaultTreeAdapterTypes as T } from "parse5";
 import { SourceFetchError } from "../types";
+import { archiveFromPage, createPacer, discoverArchiveAt, type DiscoveredArchive, type Pacer } from "./archive-source";
+import { pageTitle } from "./archive";
 import { catalogLookup, type CatalogEntry } from "./catalog";
 import { LIMITS, type WebFetcher } from "./fetcher";
 import { parseFeed, type FeedFormat } from "./feed-parser";
@@ -23,18 +30,26 @@ import { checkUrl } from "./safe-fetch";
 
 export const COMMON_FEED_PATHS = ["/feed", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/index.xml"] as const;
 export const MAX_CANDIDATES = 8;
+/** Requests the archive fallback may add: the archive page and one sitemap (or a sitemap index and its child). */
+export const ARCHIVE_EXTRA_FETCHES = 3;
+
+/** "archive": a public archive page, read by the archive source (no feed). */
+export type SourceFormat = FeedFormat | "archive";
 
 const FEED_TYPES = new Set(["application/rss+xml", "application/atom+xml", "application/rdf+xml", "application/xml", "text/xml"]);
 
 export interface DiscoveredFeed {
+  /** The feed URL, or for format "archive" the archive page's URL. */
   feedUrl: string;
-  format: FeedFormat;
+  format: SourceFormat;
   title: string;
   homepageUrl: string | null;
   itemCount: number;
   /** The newest dated item (ISO 8601), or null when no item carries a date. */
   latestIssueAt: string | null;
   catalogId: string | null;
+  /** Archive only: how issues were found, and the newest few (for the preview). */
+  archive?: Pick<DiscoveredArchive, "method" | "issues">;
 }
 
 export type DiscoveryResult =
@@ -107,6 +122,7 @@ export async function discoverFeed(
   input: string,
   fetcher: WebFetcher,
   catalog: readonly CatalogEntry[] = [],
+  options: { pacer?: Pacer; archiveFallback?: boolean } = {},
 ): Promise<DiscoveryResult> {
   const entry = catalogLookup(catalog, input);
   const start = entry ? toUrl(entry.feedUrl ?? entry.homepageUrl) : toUrl(input);
@@ -122,6 +138,7 @@ export async function discoverFeed(
   const tried = new Set<string>();
   let lastError: string | undefined;
   let pageSeen = false;
+  let firstPage: { url: string; html: string } | null = null;
   let startError: string | undefined;
 
   while (queue.length && tried.size < MAX_CANDIDATES) {
@@ -161,6 +178,7 @@ export async function discoverFeed(
     } else if (!pageSeen) {
       // The first HTML page: its advertised feeds first, then the common paths.
       pageSeen = true;
+      firstPage = { url: res.url.toString(), html: res.text };
       queue.unshift(...feedLinksInHtml(res.text, res.url.toString()));
       for (const p of COMMON_FEED_PATHS) queue.push(new URL(p, res.url.origin).toString());
     } else {
@@ -174,5 +192,45 @@ export async function discoverFeed(
       else for (const p of COMMON_FEED_PATHS) queue.push(new URL(p, start.origin).toString());
     }
   }
+  if (options.archiveFallback !== false && lastError !== "blocked_address" && lastError !== "blocked_host") {
+    const archive = await archiveFallback(fetcher, entry, firstPage, options.pacer ?? createPacer());
+    if (archive.found) {
+      const a = archive.found;
+      return {
+        ok: true,
+        feed: {
+          feedUrl: a.archiveUrl,
+          format: "archive",
+          title: (entry?.name || a.title).slice(0, 200),
+          homepageUrl: homepage ?? new URL(a.archiveUrl).origin + "/",
+          itemCount: a.issueCount,
+          latestIssueAt: a.latestIssueAt,
+          catalogId: entry?.id ?? null,
+          archive: { method: a.method, issues: a.issues },
+        },
+      };
+    }
+  }
   return { ok: false, reason: "no_feed", lastError, ...(startError ? { startError } : {}) };
+}
+
+/** No feed: the catalog's archive page, else the first HTML page seen, as a public archive. */
+async function archiveFallback(
+  fetcher: WebFetcher,
+  entry: CatalogEntry | null,
+  firstPage: { url: string; html: string } | null,
+  pacer: Pacer,
+): Promise<{ found: DiscoveredArchive | null; error?: string }> {
+  try {
+    const archiveUrl = entry?.archiveUrl ? toUrl(entry.archiveUrl) : null;
+    if (archiveUrl) {
+      const r = await discoverArchiveAt(fetcher, archiveUrl.toString(), pacer);
+      if (r.archive || !firstPage) return { found: r.archive, error: r.error };
+    }
+    if (!firstPage) return { found: null };
+    const found = await archiveFromPage(fetcher, { ...firstPage, title: pageTitle(firstPage.html) }, pacer);
+    return { found };
+  } catch (err) {
+    return { found: null, error: err instanceof SourceFetchError ? err.code : "network_error" };
+  }
 }

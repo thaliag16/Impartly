@@ -15,12 +15,17 @@ export type PickerError =
   | "failed";
 
 export interface FeedPreview {
+  /** "feed": an RSS/Atom feed. "archive": no feed, read from the public archive page. */
+  kind: "feed" | "archive";
+  /** Archive only: the newest issues found on the archive page (title and date). */
+  issues?: { title: string; publishedAt: string | null }[];
   /** What to send back to add it: the catalog id, or the URL or domain the user gave. */
   query: string;
   title: string;
   /** The site's host, for display (e.g. "techcrunch.com"). */
   site: string;
   siteUrl: string | null;
+  /** The feed URL, or for an archive the archive page. */
   feedUrl: string;
   /** Newest dated issue in the feed (ISO 8601), or null. */
   lastIssueAt: string | null;
@@ -56,7 +61,7 @@ export const ERROR_MESSAGES: Record<PickerError | "not_yours", string> = {
   invalid_input: "Type a newsletter name, a website (like example.com) or a feed address.",
   not_found:
     "That name is not in Impartly's catalog yet. Paste the newsletter's website or feed address instead.",
-  no_feed: "No public feed was found on that site. Impartly can only read newsletters that publish one for now.",
+  no_feed: "No public feed was found on that site, and no public list of past issues either.",
   robots: "That site asks automated readers not to fetch it (robots.txt), so Impartly won't.",
   refused: "That site refused the request. Impartly does not get around sign-ins or paywalls.",
   blocked: "That address is not a public website, so Impartly won't fetch it.",

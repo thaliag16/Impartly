@@ -18,7 +18,12 @@ export interface PipelineConnection {
 /** A web feed the user picked (web_feeds row). */
 export interface PipelineFeed {
   id: string;
+  /** The feed URL, or for format "archive" the public archive page. */
   feedUrl: string;
+  /** "rss" | "atom" for feeds, "archive" for a public archive page. Absent: a feed. */
+  format?: "rss" | "atom" | "archive";
+  /** Archive only: keys and links of recently stored issues (so only new pages are fetched). */
+  knownUrls?: string[];
   title: string | null;
   included: boolean;
   etag: string | null;
@@ -126,6 +131,8 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
           etag: str(f.etag),
           lastModified: str(f.last_modified),
           lastFetchedAt: str(f.last_fetched_at),
+          format: f.feed_format === "archive" ? ("archive" as const) : f.feed_format === "atom" ? ("atom" as const) : ("rss" as const),
+          knownUrls: Array.isArray(f.known_urls) ? (f.known_urls as unknown[]).filter((u): u is string => typeof u === "string") : [],
         })),
       };
     },

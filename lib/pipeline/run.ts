@@ -31,6 +31,7 @@ import type { MailAdapter, NewsletterSource as SenderRule } from "../mail";
 import { mailSource } from "../sources/mail";
 import { SourceAuthError, SourceFetchError, type NewsletterSource, type PullResult } from "../sources/types";
 import type { WebFetcher } from "../sources/web/fetcher";
+import { createPacer, webArchiveSource, type Pacer } from "../sources/web/archive-source";
 import { webFeedSource } from "../sources/web/feed-source";
 import type { Newsletter, SummaryProvider } from "../summarizer/types";
 import type { PipelineConnection, PipelineFeed, PipelineStore } from "./store";
@@ -73,6 +74,8 @@ export interface PipelineDeps {
   adapterFor?(connection: PipelineConnection): MailAdapter;
   /** The polite web fetcher (one per run, so robots.txt is read once per site). */
   webFetcher?: WebFetcher;
+  /** Spaces archive requests per site (tests pass one with a fake clock). Default: real time. */
+  pacer?: Pacer;
   summarizer: SummaryProvider;
   now?: () => Date;
   limits?: Partial<PipelineLimits>;
@@ -154,6 +157,8 @@ function errorCode(err: unknown): string {
 const storableCode = (code: string) => code.toLowerCase().replace(/[^a-z0-9_+]/g, "_").slice(0, 40) || "unknown";
 
 function defaultSourceFor(deps: PipelineDeps, now: () => Date): NonNullable<PipelineDeps["sourceFor"]> {
+  // One pacer per run: archive requests to the same site are spaced across all its sources.
+  const pacer = deps.pacer ?? createPacer();
   return (stored, context) => {
     if (stored.kind === "mail") {
       if (!deps.adapterFor) throw new Error("NoMailAdapter");
@@ -161,6 +166,13 @@ function defaultSourceFor(deps: PipelineDeps, now: () => Date): NonNullable<Pipe
     }
     if (!deps.webFetcher) throw new Error("NoWebFetcher");
     const f = stored.feed;
+    if (f.format === "archive") {
+      return webArchiveSource(
+        { id: f.id, archiveUrl: f.feedUrl, title: f.title, etag: f.etag, lastModified: f.lastModified, knownUrls: f.knownUrls ?? [] },
+        deps.webFetcher,
+        { pacer, now },
+      );
+    }
     return webFeedSource(
       { id: f.id, feedUrl: f.feedUrl, title: f.title, etag: f.etag, lastModified: f.lastModified },
       deps.webFetcher,

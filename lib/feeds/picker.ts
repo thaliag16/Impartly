@@ -91,6 +91,8 @@ export async function previewNewsletter(userId: string, rawQuery: unknown, deps:
     const f = (found as Extract<DiscoveryResult, { ok: true }>).feed;
     const entry = f.catalogId ? deps.catalog.find((e) => e.id === f.catalogId) : undefined;
     const preview: FeedPreview = {
+      kind: f.format === "archive" ? "archive" : "feed",
+      ...(f.archive ? { issues: f.archive.issues.map((i) => ({ title: i.title, publishedAt: i.publishedAt })) } : {}),
       // Adding sends this back; a catalog entry is re-found by its id.
       query: entry ? entry.id : query,
       title: f.title,

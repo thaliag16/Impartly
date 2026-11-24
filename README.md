@@ -20,7 +20,11 @@ from the newsletters and the web, then picks the briefing back up where it left 
    never gets around a paywall or a sign-in. Reading Gmail is an optional extra for
    self-hosters, read-only. The **Newsletters** page (`/newsletters`) is where you search the
    catalog by name or paste a website or feed address, see what Impartly found (title, site,
-   last issue) before adding it, and switch each newsletter on or off or remove it.
+   last issue) before adding it, and switch each newsletter on or off or remove it. For a
+   newsletter with no feed, Impartly offers its public archive page instead and shows the
+   issues it found there; it then reads at most 5 new issue pages per site per run, at most
+   one request a second (slower if the site's robots.txt asks), with no cookies, no
+   sign-ins and no headless browser, and marks paywalled issues as previews.
 2. **Summarize.** Each issue becomes a short spoken-style summary. You choose the length
    (headline, brief or deep) and the topics to emphasize or skip.
 3. **Render.** Summaries become audio ahead of time, so listening works like a podcast,
@@ -95,7 +99,9 @@ and drops its own database. Without `DATABASE_URL` they are skipped locally; CI 
 The newsletter catalog (`data/newsletter-catalog.json`) is editable. `npm run verify:catalog`
 checks every entry against the live sites (it needs internet access; CI runs it on pull
 requests that touch the catalog and writes a report to the job summary). Mark an entry
-`verified: true` only after that report shows a valid feed for it.
+`verified: true` only after that report shows a valid feed for it. For entries with no
+feed, the report also tries the public archive fallback (`archiveUrl` in the catalog, else
+the homepage) and says what it found: counts and codes only, never issue text.
 
 The look (GOAL.md section 1a) lives in one file, `app/theme.css`: colour tokens, borders,
 shadows and the shared classes. No colour value may appear anywhere else in the UI

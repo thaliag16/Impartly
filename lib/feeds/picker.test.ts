@@ -96,6 +96,7 @@ describe("previewNewsletter", () => {
     expect(out).toEqual({
       ok: true,
       preview: {
+        kind: "feed",
         query: "invented-ledger",
         title: "The Invented Ledger",
         site: "ledger.example",
@@ -179,6 +180,42 @@ describe("addNewsletter", () => {
     });
   });
 
+  it("a site with no feed but a public archive: the preview lists issues, and Add stores the archive page as format 'archive'", async () => {
+    const archiveSite = () =>
+      createFakeWeb({
+        routes: {
+          "https://desk.example/": {
+            status: 200,
+            headers: { "content-type": "text/html" },
+            body: '<title>Invented Desk</title><main><article><h2><a href="/p/two">Invented issue two</a></h2><time datetime="2026-11-20T00:00:00Z"></time></article><article><h2><a href="/p/one">Invented issue one</a></h2></article></main>',
+          },
+        },
+      });
+    const r = fakeRpc();
+    const preview = await previewNewsletter(USER, "desk.example", deps(archiveSite(), r));
+    expect(preview).toEqual({
+      ok: true,
+      preview: {
+        kind: "archive",
+        issues: [
+          { title: "Invented issue two", publishedAt: "2026-11-20T00:00:00.000Z" },
+          { title: "Invented issue one", publishedAt: null },
+        ],
+        query: "desk.example",
+        title: "Invented Desk",
+        site: "desk.example",
+        siteUrl: "https://desk.example/",
+        feedUrl: "https://desk.example/",
+        lastIssueAt: "2026-11-20T00:00:00.000Z",
+        itemCount: 2,
+        fromCatalog: false,
+      },
+    });
+    const added = await addNewsletter(USER, "desk.example", deps(archiveSite(), r));
+    expect(added).toMatchObject({ ok: true, title: "Invented Desk" });
+    expect(r.calls.find((c) => c.fn === "feeds_subscribe")?.args).toMatchObject({ p_feed_url: "https://desk.example/", p_feed_format: "archive" });
+  });
+
   it("stores nothing when discovery fails or the limit is hit", async () => {
     const r = fakeRpc();
     expect(await addNewsletter(USER, "https://plain.example/", deps(createFakeWeb(), r))).toEqual({ ok: false, error: "no_feed" });
@@ -243,6 +280,11 @@ describe("the real catalog and the UI tests' fake web", () => {
       ["intranet.example", "blocked"],
     ];
     for (const [q, error] of cases) expect(await previewNewsletter(USER, q, fakeDeps(fakeRpc())), q).toEqual({ ok: false, error });
+  });
+
+  it("the e2e fake web has an archive-only site: two issues, the off-site one left out", async () => {
+    const out = await previewNewsletter(USER, "archive-only.example", fakeDeps(fakeRpc()));
+    expect(out.ok && out.preview).toMatchObject({ kind: "archive", title: "Invented Archive Weekly", itemCount: 2, feedUrl: "https://archive-only.example/" });
   });
 
   it("the fake web is only switched on by its env flag, and never on Vercel", () => {

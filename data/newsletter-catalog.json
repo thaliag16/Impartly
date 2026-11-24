@@ -1,5 +1,5 @@
 {
-  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. Every entry is verified: false until `npm run verify:catalog` (run from a GitHub runner) finds a valid feed at it; the agent that wrote these could not reach any of the sites. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage.",
+  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. Every entry is verified: false until `npm run verify:catalog` (run from a GitHub runner) finds a valid feed at it; the agent that wrote these could not reach any of the sites. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage. archiveUrl (optional): the public archive page to read when no feed is found.",
   "entries": [
     {
       "id": "techcrunch",
@@ -24,7 +24,7 @@
       "homepageUrl": "https://www.morningbrew.com/",
       "feedUrl": null,
       "verified": false,
-      "note": "No official RSS feed known; discovery will look. If none is found it needs the public web archive (a later Phase 1 item)."
+      "note": "No official RSS feed known; discovery will look. The run-11 live check found /feed.xml (whether it carries the newsletter itself is not checked). If no feed is found, the homepage is read as a public archive."
     },
     {
       "id": "stratechery",
@@ -96,7 +96,8 @@
       "homepageUrl": "https://www.ben-evans.com/",
       "feedUrl": null,
       "verified": false,
-      "note": "No feed URL known for certain; discovery reads the homepage. The weekly newsletter itself may only be email."
+      "note": "No feed URL known for certain; discovery reads the homepage. The weekly newsletter itself may only be email. archiveUrl is the essays page (a Squarespace blog, from memory, not checked), read as a public archive if no feed is found; it holds the essays, not the email newsletter.",
+      "archiveUrl": "https://www.ben-evans.com/benedictevans"
     },
     {
       "id": "the-generalist",
@@ -114,7 +115,7 @@
       "homepageUrl": "https://www.axios.com/newsletters/axios-pro-rata",
       "feedUrl": null,
       "verified": false,
-      "note": "No per-newsletter feed known; discovery will look. Likely needs the public web archive (a later Phase 1 item)."
+      "note": "No per-newsletter feed known; discovery will look, then read this page as a public archive. The run-11 live check got HTTP 403 here, which Impartly does not work around."
     },
     {
       "id": "fortune-term-sheet",

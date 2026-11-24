@@ -107,6 +107,46 @@ export function policyAllows(policy: RobotsPolicy, url: URL): boolean {
   return isAllowedBy(policy.rules, `${url.pathname}${url.search}`);
 }
 
+export interface RobotsExtras {
+  /** Crawl-delay in seconds from our group (else the "*" group), or null if none is set. */
+  crawlDelaySeconds: number | null;
+  /** Sitemap URLs (absolute http(s)) listed anywhere in the file, at most 10. */
+  sitemaps: string[];
+}
+
+/**
+ * The non-standard lines RFC 9309 leaves to crawlers: Crawl-delay (honoured by the archive
+ * source, never shortened) and Sitemap (used to find newsletter issues).
+ */
+export function robotsExtras(text: string, productToken: string): RobotsExtras {
+  const sitemaps: string[] = [];
+  const delays = new Map<string, number>(); // agent -> delay
+  let agents: string[] = [];
+  let lastWasAgent = false;
+  for (const rawLine of text.split(/\r\n|\r|\n/)) {
+    const line = rawLine.replace(/#.*$/, "").trim();
+    const m = line.match(/^([A-Za-z-]+)\s*:\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    const value = m[2].trim();
+    if (key === "user-agent") {
+      if (!lastWasAgent) agents = [];
+      agents.push(value.toLowerCase().split("/")[0]);
+      lastWasAgent = true;
+      continue;
+    }
+    lastWasAgent = false;
+    if (key === "sitemap") {
+      if (sitemaps.length < 10 && /^https?:\/\//i.test(value)) sitemaps.push(value);
+    } else if (key === "crawl-delay") {
+      const n = Number(value);
+      if (Number.isFinite(n) && n >= 0) for (const a of agents) if (!delays.has(a)) delays.set(a, n);
+    }
+  }
+  const delay = delays.get(productToken) ?? delays.get("*") ?? null;
+  return { crawlDelaySeconds: delay, sitemaps };
+}
+
 /** The policy for a robots.txt response (status and body), per RFC 9309 section 2.3.1. */
 export function policyFromResponse(status: number, body: string, productToken: string): RobotsPolicy {
   if (status >= 200 && status < 300) return { kind: "rules", rules: rulesFor(parseRobots(body), productToken) };
