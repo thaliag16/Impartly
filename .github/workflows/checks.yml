@@ -142,6 +142,7 @@ jobs:
   #   secret   SUMMARY_API_KEY   key for the summary model's endpoint
   #   variable SUMMARY_BASE_URL  OpenAI-compatible base URL, e.g. https://host/v1
   #   variable SUMMARY_MODEL     model name for that endpoint
+  #   variable SUMMARY_REASONING optional: off (default), minimal, low, medium, high, default
   # Without the secret (including on pull requests from forks) every step after the first
   # is skipped and the run shows a notice; it neither fails nor reports a score. If the
   # secret is set but a variable is missing, the eval fails and names the missing setting.
@@ -157,6 +158,7 @@ jobs:
       SUMMARY_API_KEY: ${{ secrets.SUMMARY_API_KEY }}
       SUMMARY_BASE_URL: ${{ vars.SUMMARY_BASE_URL }}
       SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
+      SUMMARY_REASONING: ${{ vars.SUMMARY_REASONING }}
     steps:
       - name: Skip notice (no SUMMARY_API_KEY secret)
         if: env.SUMMARY_API_KEY == ''

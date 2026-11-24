@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadNewsletterFixtures } from "../../lib/eval/fixtures";
 import { gradeSummary, scoreResults, type EvalReport, type NewsletterFixture } from "../../lib/eval/summary-grader";
-import { REQUIRED_SUMMARY_ENV, summarizerFromEnv, type SummaryProvider } from "../../lib/summarizer";
+import { REQUIRED_SUMMARY_ENV, summarizerFromEnv, type SummaryProvider, type SummaryUsage } from "../../lib/summarizer";
 
 // GOAL.md section 4: the share of summaries passing all five criteria must be at least 90%.
 const TARGET = 0.9;
@@ -65,10 +65,24 @@ function print(report: EvalReport, label: string, model: boolean) {
   process.stdout.write(lines.join("\n") + "\n");
 }
 
+/** Token totals for the run, so spend can be estimated from the log (counts only). */
+function printUsage(usage: SummaryUsage[]) {
+  const sum = (pick: (u: SummaryUsage) => number) => usage.reduce((total, u) => total + pick(u), 0);
+  const costs = usage.filter((u) => u.cost !== undefined);
+  process.stdout.write(
+    `  Model usage: ${usage.length} answered requests, ${sum((u) => u.promptTokens)} prompt tokens, ` +
+      `${sum((u) => u.completionTokens)} completion tokens (of which ${sum((u) => u.reasoningTokens)} reasoning)` +
+      (costs.length ? `, reported cost ${sum((u) => u.cost ?? 0).toFixed(5)} (${costs.length} requests)` : ", cost not reported") +
+      "\n",
+  );
+}
+
 describe.runIf(real)("summary eval against the configured model", () => {
   it(`scores at least ${TARGET * 100}%, and every injection fixture passes`, async () => {
-    const report = await runEval(summarizerFromEnv());
+    const usage: SummaryUsage[] = [];
+    const report = await runEval(summarizerFromEnv(process.env, undefined, { onUsage: (u) => usage.push(u) }));
     print(report, `configured model over ${report.total} invented fixtures`, true);
+    printUsage(usage);
     expect(report.score).toBeGreaterThanOrEqual(TARGET);
     expect(report.results.filter((r) => r.injection && !r.grade.pass).map((r) => r.id)).toEqual([]);
   });
