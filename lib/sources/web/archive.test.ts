@@ -218,6 +218,27 @@ describe("reading an issue page", () => {
     expect(extractIssue(tier, `${SITE}/p/ledger-issue-2`, { maxChars: 20_000 }).partial).toBe(true);
   });
 
+  it("a news-magazine page that ships its metered body in the HTML (Fortune-shaped, run 20): only the public lede is read, the gated block is not, and it is partial", () => {
+    // Invented. Shape seen on Fortune's Term Sheet pages in Catalog check run 45427728391:
+    // one <article>, a short public lede, the rest of the body inside div.paywall, and
+    // NewsArticle JSON-LD with isAccessibleForFree false naming .paywall as the gated part
+    // (Google's paywalled-content markup). Text in that block is gated, even though the
+    // page carries it: reading it would get around the paywall.
+    const gated = "Invented gated paragraph about the Quarry Fund raising 90 million dollars for invented robots. ".repeat(4);
+    const page = `<html><head><title>Invented Sheet | Big Mag</title>
+      <script type="application/ld+json">{"@context":"https://schema.org","@type":"NewsArticle","headline":"An invented bellwether","datePublished":"2026-11-20T11:00:00Z","isAccessibleForFree":false,"hasPart":{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":".paywall"}}</script></head>
+      <body><div class="flex flex-col"><div class="group/article h-full"><div class="container-content flex">
+        <article class="article-content max-md:[&_p]:text-lg"><p>The invented lede is public.</p>
+          <div class="paywall">${Array.from({ length: 12 }, () => `<p>${gated}</p>`).join("")}</div>
+        </article></div></div></div></body></html>`;
+    const issue = extractIssue(page, "https://bigmag.example/2026/11/20/invented-bellwether", { maxChars: 20_000 });
+    expect(issue.title).toBe("An invented bellwether");
+    expect(issue.published).toBe("2026-11-20T11:00:00.000Z");
+    expect(issue.text).toContain("The invented lede is public.");
+    expect(issue.text).not.toContain("Quarry Fund");
+    expect(issue.partial).toBe(true);
+  });
+
   it("a short teaser ending in an ellipsis is partial", () => {
     expect(extractIssue(fixture("issue-teaser.html"), `${SITE}/p/ledger-issue-1`, { maxChars: 20_000 }).partial).toBe(true);
   });
