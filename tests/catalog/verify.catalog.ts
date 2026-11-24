@@ -90,7 +90,8 @@ async function archiveRow(
     const { archive, error } = await discoverArchiveAt(fetcher, url, pacer);
     if (!archive) return `| ${id} | ${url} | no archive | | | | | | | ${error ?? ""} |`;
     count(1);
-    // Read the newest issue only (limit 1), from the last 60 days.
+    // Read the newest issue only (limit 1), from the last year (some archives are monthly
+    // or slower; the app itself reads only since the last pull).
     const source = webArchiveSource(
       { id, archiveUrl: archive.archiveUrl, title: archive.title, etag: null, lastModified: null, knownUrls: [] },
       fetcher,
@@ -101,7 +102,7 @@ async function archiveRow(
     let partial = "";
     let err = "";
     try {
-      const pulled = await source.pull({ since: new Date(Date.now() - 60 * 24 * 3600 * 1000), limit: 1, maxChars: 20_000, firstPull: true });
+      const pulled = await source.pull({ since: new Date(Date.now() - 365 * 24 * 3600 * 1000), limit: 1, maxChars: 20_000, firstPull: true });
       const item = pulled.items[0];
       if (item) {
         sample = "yes";
