@@ -327,3 +327,114 @@ body {
 .px-dot-on {
   background: var(--mocha-green);
 }
+
+/* ---- Player (/listen, the Player mockup) ------------------------------------------- */
+
+.px-player {
+  gap: 22px;
+}
+
+.px-square {
+  width: var(--target);
+  padding: 0;
+}
+
+.px-lines {
+  gap: 10px;
+}
+
+.px-line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* The sentence playing now. */
+.px-line-current {
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.45;
+  padding: 4px 6px;
+  background: var(--blush);
+  color: var(--mocha-ink);
+}
+
+/* Progress drawn as a pixel waveform: played bars in mocha green, the rest in dune. */
+.px-wave {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 48px;
+}
+
+.px-bar {
+  flex: 1 1 0;
+  min-width: 2px;
+  max-width: 6px;
+  background: var(--dune);
+}
+
+.px-bar-played {
+  background: var(--mocha-green);
+}
+
+.px-chips {
+  display: inline-flex;
+  border: var(--border);
+}
+
+.px-chip {
+  font-family: var(--font-label);
+  font-size: 12px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  padding: 10px 12px;
+}
+
+.px-chip-on {
+  background: var(--mocha-ink);
+  color: var(--sand);
+}
+
+.px-transport {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.px-player-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.px-play {
+  width: 72px;
+  height: 72px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mocha-green);
+  color: var(--sand);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.px-play .px-icon {
+  width: 24px;
+  height: 28px;
+}
+
+.px-play:disabled,
+.px-ask:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.px-ask {
+  flex: 1;
+  min-height: 72px;
+  font-size: 24px;
+}
