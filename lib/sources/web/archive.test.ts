@@ -232,6 +232,14 @@ describe("reading an issue page", () => {
     expect(mainContent(doc)?.attrs.find((a) => a.name === "id")?.value).toBe("big");
     const doc2 = parse(`<body><div id="menu"><p>Home</p></div><div id="post"><p>${"word ".repeat(50)}</p><p>${"more ".repeat(50)}</p></div></body>`);
     expect(mainContent(doc2)?.attrs.find((a) => a.name === "id")?.value).toBe("post");
+    // Inside a page-wide container, the post still wins over the container (which would
+    // also take in the menu).
+    const doc3 = parse(`<body><div id="page"><div id="menu"><p>Home</p></div><div id="post"><p>${"word ".repeat(50)}</p><p>${"more ".repeat(50)}</p></div><p>Small print</p></div></body>`);
+    expect(mainContent(doc3)?.attrs.find((a) => a.name === "id")?.value).toBe("post");
+    // One wrapper per paragraph: the block holding the wrappers wins over any one wrapper.
+    const wrapped = (s: string) => `<div class="w"><p>${s}</p></div>`;
+    const doc4 = parse(`<body><div id="page"><div id="doc">${wrapped("word ".repeat(60))}${wrapped("more ".repeat(40))}${wrapped("last ".repeat(40))}</div></div></body>`);
+    expect(mainContent(doc4)?.attrs.find((a) => a.name === "id")?.value).toBe("doc");
   });
 
   it("an article inside a hidden ancestor yields no text", () => {

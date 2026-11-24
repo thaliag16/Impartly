@@ -18,7 +18,9 @@
 //
 // Reading one issue page: the main content is chosen readability-style (itemprop
 // articleBody, else the <article> with the most paragraph text, else <main>, else the
-// block with the most paragraph text) and turned into text by the shared HTML-to-text
+// block with the most paragraph text, counting each <p> in full for its parent block and
+// half for the block above it, so a post body that wraps every paragraph in its own <div>,
+// as beehiiv does, is read whole) and turned into text by the shared HTML-to-text
 // step, so the hidden-text rules (lib/text/html-to-text.ts) apply exactly as for feeds and
 // mail. Share bars, comments, related-post lists, sign-up boxes, nav, header, footer,
 // aside and forms inside it are left out.
@@ -436,13 +438,27 @@ export function mainContent(doc: T.Document): T.Element | null {
   }
   const main = all.find((e) => e.tagName === "main" || (attrOf(e, "role") ?? "").toLowerCase() === "main");
   if (main) return main;
-  // The block whose direct <p> children hold the most text.
+  // The block with the most paragraph text, readability-style: each <p> counts in full for
+  // its parent block and half for the block above that. So a post body whose paragraphs
+  // each sit in their own wrapper <div> (beehiiv) beats any single wrapper, while a block
+  // holding its paragraphs directly still beats the page-wide container around it.
+  const scores = new Map<T.Element, number>();
+  const credit = (e: T.ParentNode | null, n: number) => {
+    if (!e || !isEl(e) || !BLOCK_TAGS.has(e.tagName) || insideChrome(e)) return;
+    scores.set(e, (scores.get(e) ?? 0) + n);
+  };
+  for (const p of all) {
+    if (p.tagName !== "p" || insideChrome(p)) continue;
+    const n = squash(rawText(p)).length;
+    if (!n) continue;
+    credit(p.parentNode, n);
+    const parent = p.parentNode;
+    credit(parent && isEl(parent) ? parent.parentNode : null, n / 2);
+  }
   let best: T.Element | null = null;
   let bestScore = 0;
   for (const e of all) {
-    if (!["div", "section", "td"].includes(e.tagName) || insideChrome(e)) continue;
-    let score = 0;
-    for (const c of e.childNodes) if (isEl(c) && c.tagName === "p") score += squash(rawText(c)).length;
+    const score = scores.get(e) ?? 0;
     if (score > bestScore) {
       best = e;
       bestScore = score;
@@ -450,6 +466,8 @@ export function mainContent(doc: T.Document): T.Element | null {
   }
   return best ?? body;
 }
+
+const BLOCK_TAGS = new Set(["div", "section", "td"]);
 
 function skipBoilerplate(el: T.Element): boolean {
   if (CHROME.has(el.tagName) || CHROME_ROLE.test(attrOf(el, "role") ?? "")) return true;

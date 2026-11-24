@@ -8,7 +8,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createFakeWeb, feedFixture, PUBLIC_V4, rss, type Route } from "../../../tests/web/fake-web";
-import { issueLinksFromSitemap, parseSitemap } from "./archive";
+import { parse } from "parse5";
+import { extractIssue, issueLinksFromSitemap, mainContent, parseSitemap } from "./archive";
 import { createPacer, webArchiveSource, type StoredArchive } from "./archive-source";
 import { discoverFeed } from "./discover";
 import { createWebFetcher } from "./fetcher";
@@ -170,7 +171,7 @@ describe("the archive source on a beehiiv archive", () => {
     const { web, pacer, fetcher } = clockedWeb({
       [`${SITE}/archive`]: html(fixture("beehiiv-archive-shell.html")),
       [`${SITE}/sitemap.xml`]: xml(fixture("beehiiv-sitemap.xml")),
-      [`${SITE}/p/invented-markets-slide`]: html(issue.replace(/https:\/\/letters\.example\/p\/ledger-issue-3/g, `${SITE}/p/invented-markets-slide`)),
+      [`${SITE}/p/invented-markets-slide`]: html(fixture("beehiiv-post.html")),
       [`${SITE}/p/invented-fund-closes`]: html(issue.replace(/https:\/\/letters\.example\/p\/ledger-issue-3/g, `${SITE}/p/invented-fund-closes`)),
     });
     const r = await webArchiveSource(stored({ knownUrls: [`${SITE}/p/invented-round-up`] }), fetcher, { pacer, now: () => NOW }).pull({
@@ -180,7 +181,57 @@ describe("the archive source on a beehiiv archive", () => {
       firstPull: false,
     });
     expect(r.items.map((i) => i.key)).toEqual([`url:${SITE}/p/invented-markets-slide`, `url:${SITE}/p/invented-fund-closes`]);
+    // The beehiiv-shaped post is stored whole, not as a one-paragraph preview.
+    expect(r.items[0].partial).toBe(false);
+    expect(r.items[0].bodyText).toContain("Saltmarsh Health");
     expect(requested(web).every((u) => u.startsWith(`${SITE}/`))).toBe(true);
     expect(requested(web)).not.toContain(`${SITE}/p/invented-round-up`);
+  });
+});
+
+// beehiiv post pages have no <article> or <main>, and wrap every paragraph in its own
+// <div> inside the post body (structure seen on a live StrictlyVC issue page, Catalog
+// check run 45342034126: 52 one-paragraph wrappers, ~12,500 of the page's ~12,900
+// characters of paragraph text under div.dream-post-content-doc). Before run 17 the
+// reader took the wrapper with the longest single paragraph.
+describe("reading a beehiiv post page", () => {
+  const read = (name: string, slug: string) => extractIssue(fixture(name), `${SITE}/p/${slug}`, { maxChars: 20_000 });
+
+  it("a free post with one paragraph per wrapper is read in full and is not partial", () => {
+    const issue = read("beehiiv-post.html", "invented-markets-slide");
+    expect(issue.title).toBe("Invented markets slide on a quiet Thursday");
+    expect(issue.published).toBe("2026-11-20T13:00:00.000Z");
+    for (const fact of ["Larkspur 40 down 2.1%", "$410 billion", "Quillfeather Systems", "Brackenridge Cloud", "What moved", "Tidewater Robotics", "Saltmarsh Health", "invented jobs report"]) {
+      expect(issue.text, fact).toContain(fact);
+    }
+    expect(issue.text.length).toBeGreaterThan(1200);
+    expect(issue.partial).toBe(false);
+  });
+
+  it("the post body block is chosen, not a page-wide wrapper: promo, share, subscribe, nav and footer are left out", () => {
+    const issue = read("beehiiv-post.html", "invented-markets-slide");
+    for (const boiler of ["Join 40,000", "Share this", "Subscribe to The Invented Brief", "footer text", "Archive"]) {
+      expect(issue.text, boiler).not.toContain(boiler);
+    }
+    const main = mainContent(parse(fixture("beehiiv-post.html")));
+    expect(main?.attrs.find((a) => a.name === "class")?.value).toContain("dream-post-content-doc");
+  });
+
+  it("hidden text inside a wrapper is still dropped", () => {
+    expect(read("beehiiv-post.html", "invented-markets-slide").text).not.toMatch(/PWNED|wire money/);
+  });
+
+  it("a premium post stays partial although its public paragraphs pass 500 characters", () => {
+    const issue = read("beehiiv-post-paywall.html", "invented-fund-closes");
+    expect(issue.text).toContain("Meadowbank Capital");
+    expect(issue.text).toContain("university endowment");
+    expect(issue.text.length).toBeGreaterThan(500);
+    expect(issue.text).not.toContain("paying subscribers");
+    expect(issue.partial).toBe(true);
+    // The notice alone, or the structured data alone, is enough.
+    const noLd = fixture("beehiiv-post-paywall.html").replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, "");
+    expect(extractIssue(noLd, `${SITE}/p/invented-fund-closes`, { maxChars: 20_000 }).partial).toBe(true);
+    const noNotice = fixture("beehiiv-post-paywall.html").replace(/<div class="paywall-gate">[\s\S]*?<\/div><\/div>/, "");
+    expect(extractIssue(noNotice, `${SITE}/p/invented-fund-closes`, { maxChars: 20_000 }).partial).toBe(true);
   });
 });
