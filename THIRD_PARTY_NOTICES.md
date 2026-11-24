@@ -12,6 +12,7 @@ their own licenses. Add a row here whenever one is added.
 | TypeScript | Build-time language tooling | Apache 2.0 | https://github.com/microsoft/TypeScript |
 | @typescript/typescript6 | TypeScript 6 API for lint tooling (TS 7 has no JS API yet); installed as the `typescript` alias, `tsc` stays on 7 | Apache 2.0 | https://github.com/microsoft/TypeScript |
 | Vitest | Unit tests (dev only) | MIT | https://github.com/vitest-dev/vitest |
+| Playwright (@playwright/test, playwright, playwright-core) | UI tests (dev only); browsers are not committed | Apache 2.0 | https://github.com/microsoft/playwright |
 | ESLint | Linting (dev only) | MIT | https://github.com/eslint/eslint |
 | eslint-config-next | Next.js lint rules (dev only) | MIT | https://github.com/vercel/next.js |
 | typescript-eslint | TypeScript lint rules, via eslint-config-next (dev only) | MIT | https://github.com/typescript-eslint/typescript-eslint |
