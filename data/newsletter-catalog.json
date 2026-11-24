@@ -21,7 +21,7 @@
       "verified": true,
       "verifiedAt": "2026-11-24",
       "verifiedRunId": 45337784590,
-      "note": "beehiiv publication (source given by Thalia, run 16). Live checks (runs 45337117393 and 45337784590) found no feed; /archive is read through the beehiiv sitemap (/sitemap.xml, 100 /p/ issues), newest \"Wall Street's AI Rout Erases More Than $4 Trillion in Market Value\" (lastmod 2026-11-21). The sample issue read only 458 characters and was marked partial; see PROGRESS.md. The old strictlyvc.com/feed/ (issues titled 2019) is not used."
+      "note": "beehiiv publication (source given by Thalia, run 16). Live checks (runs 45337117393 and 45337784590) found no feed; /archive is read through the beehiiv sitemap (/sitemap.xml, 100 /p/ issues), newest \"Wall Street's AI Rout Erases More Than $4 Trillion in Market Value\" (lastmod 2026-11-21). Run 16's sample issue read only 458 characters (partial): the reader picked one paragraph wrapper. Fixed in run 17; Catalog check run 45342733284 read the newest issue at 11,744 characters, not partial. The old strictlyvc.com/feed/ (issues titled 2019) is not used."
     },
     {
       "id": "morning-brew",
