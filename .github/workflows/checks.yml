@@ -1,7 +1,9 @@
 # Runs every check from GOAL.md section 4 on each push and pull request.
 #
-# Free: GitHub-hosted runners only, no paid services. No secrets are used or needed,
-# so pull requests from forks run it the same way.
+# Free: GitHub-hosted runners only, no paid services. The "checks" and "models" jobs use
+# no secrets, so pull requests from forks run them the same way. The one exception is the
+# optional "summary-eval" job below, which calls a summary model only when the repository
+# has a SUMMARY_API_KEY secret, and otherwise skips with a notice.
 # Third-party actions are pinned to full commit SHAs (tag in the trailing comment).
 
 name: Checks
@@ -11,6 +13,8 @@ on:
   pull_request:
   push:
     branches: ["**"]
+  # Lets the owner re-run the real summary eval by hand (Actions tab, "Run workflow").
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -53,6 +57,11 @@ jobs:
 
       - name: Unit tests
         run: npm test
+
+      # No secret here: this checks the eval harness with a fake provider and says so in
+      # the log. The real model eval is the separate summary-eval job.
+      - name: Summary eval harness self-test
+        run: npm run eval:summaries
 
       - name: Build
         run: npm run build
@@ -114,3 +123,49 @@ jobs:
 
       - name: Model tests
         run: npm run test:models
+
+  # Summary eval against a real model (GOAL.md section 4, Phase 1: at least 90%).
+  # Needs, in the repository settings under Secrets and variables > Actions:
+  #   secret   SUMMARY_API_KEY   key for the summary model's endpoint
+  #   variable SUMMARY_BASE_URL  OpenAI-compatible base URL, e.g. https://host/v1
+  #   variable SUMMARY_MODEL     model name for that endpoint
+  # Without the secret (including on pull requests from forks) every step after the first
+  # is skipped and the run shows a notice; it neither fails nor reports a score. If the
+  # secret is set but a variable is missing, the eval fails and names the missing setting.
+  # Runs on pull requests and by hand, not on every push, to keep model spend down
+  # (20 short requests per run).
+  summary-eval:
+    name: Summary eval (real model, needs SUMMARY_API_KEY)
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      SUMMARY_API_KEY: ${{ secrets.SUMMARY_API_KEY }}
+      SUMMARY_BASE_URL: ${{ vars.SUMMARY_BASE_URL }}
+      SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
+    steps:
+      - name: Skip notice (no SUMMARY_API_KEY secret)
+        if: env.SUMMARY_API_KEY == ''
+        run: echo "::notice title=Summary eval skipped::No SUMMARY_API_KEY secret is set, so no model was evaluated. Add the secret and the SUMMARY_BASE_URL and SUMMARY_MODEL variables to run it."
+
+      - name: Check out
+        if: env.SUMMARY_API_KEY != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        if: env.SUMMARY_API_KEY != ''
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        if: env.SUMMARY_API_KEY != ''
+        run: npm ci
+
+      - name: Summary eval
+        if: env.SUMMARY_API_KEY != ''
+        run: npm run eval:summaries

@@ -1,0 +1,49 @@
+{
+  "id": "09-policy-calloway-housing",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "deep",
+  "newsletter": {
+    "from": "The Statehouse Brief <brief@statehouse.example>",
+    "subject": "Calloway housing bill clears the Senate",
+    "receivedAt": "2026-11-22T23:40:00Z",
+    "text": "THE BIG ONE\n\nThe Calloway state Senate passed the Starter Homes Act by a vote of 31 to 18 on Friday. The bill lets developers build up to four homes on lots currently zoned for one, near transit stops, and sets a goal of 12,000 new homes a year.\n\nGovernor Ines Halvorsen has said she will sign it, and her office expects to do so by December 5.\n\nSupporters, including the Calloway Builders Council, say the bill will bring down rents over time. Opponents, led by Senator Wade Prentice, argue that it overrides local control and that suburbs will see more traffic without new roads.\n\nThe bill also creates a $250 million fund for water and sewer upgrades in towns that add housing. Cities have until July 1 to update their zoning codes.\n\nALSO TODAY\n- A bill to cap ticket resale prices stalled in committee.\n- The state's rainy-day fund hit a record $3.9 billion."
+  },
+  "keyFacts": [
+    {
+      "fact": "Senate passed the Starter Homes Act 31 to 18",
+      "terms": [
+        "Starter Homes Act",
+        "31",
+        "18"
+      ]
+    },
+    {
+      "fact": "Up to four homes per lot near transit",
+      "terms": [
+        "four",
+        "transit"
+      ]
+    },
+    {
+      "fact": "Goal of 12,000 homes a year",
+      "terms": [
+        "12000"
+      ]
+    },
+    {
+      "fact": "Governor Halvorsen expected to sign by December 5",
+      "terms": [
+        "Halvorsen",
+        "December 5"
+      ]
+    },
+    {
+      "fact": "$250 million infrastructure fund",
+      "terms": [
+        "250 million"
+      ]
+    }
+  ],
+  "referenceSummary": "The Calloway state Senate passed the Starter Homes Act 31 to 18 on Friday. It lets developers build up to four homes on single-home lots near transit stops and sets a goal of 12,000 new homes a year. Governor Ines Halvorsen has said she will sign it, and her office expects to by December 5. Supporters, including the Calloway Builders Council, say it will bring rents down over time, while opponents led by Senator Wade Prentice say it overrides local control and adds traffic. The bill also creates a $250 million fund for water and sewer upgrades, and cities have until July 1 to update their zoning."
+}

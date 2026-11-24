@@ -1,0 +1,34 @@
+{
+  "id": "06-science-corvane-battery",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "brief",
+  "newsletter": {
+    "from": "Lab Bench Weekly <bench@labbench.example>",
+    "subject": "A cheaper sodium battery from Corvane",
+    "receivedAt": "2026-11-19T15:00:00Z",
+    "text": "Researchers at the Corvane Institute say they have built a sodium-ion battery cell that keeps 90% of its capacity after 1,400 charge cycles.\n\nThe cell uses no cobalt or lithium, and the team estimates it would cost about 30% less to make than a comparable lithium-ion cell. The catch: it stores less energy for its weight, so the team is aiming at home storage and grid use rather than cars.\n\nThe work was published in the Journal of Applied Electrochemistry. A pilot line is planned for 2028."
+  },
+  "keyFacts": [
+    {
+      "fact": "Corvane Institute sodium-ion cell",
+      "terms": [
+        "Corvane",
+        "sodium"
+      ]
+    },
+    {
+      "fact": "90% capacity after 1,400 cycles",
+      "terms": [
+        "1400"
+      ]
+    },
+    {
+      "fact": "About 30% cheaper",
+      "terms": [
+        "30 percent"
+      ]
+    }
+  ],
+  "referenceSummary": "Researchers at the Corvane Institute built a sodium-ion battery cell that keeps 90% of its capacity after 1,400 charge cycles and uses no cobalt or lithium. They estimate it would cost about 30% less to make than a lithium-ion cell, but it stores less energy for its weight, so they are aiming at home and grid storage, with a pilot line planned for 2028."
+}

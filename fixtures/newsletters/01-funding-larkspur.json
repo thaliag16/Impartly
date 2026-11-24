@@ -1,0 +1,40 @@
+{
+  "id": "01-funding-larkspur",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "brief",
+  "newsletter": {
+    "from": "The Seed Sheet <hello@seedsheet.example>",
+    "subject": "Larkspur Robotics lands $40M",
+    "receivedAt": "2026-11-23T06:05:00Z",
+    "text": "Good morning, builders.\n\nLarkspur Robotics, the maker of shelf-picking robots for mid-sized warehouses, has raised a $40 million Series B led by Tidewater Ventures. Existing backer Halcyon Fund also joined the round.\n\nLarkspur says its robots now run in 85 customer warehouses, up from 30 a year ago. The company plans to use the money to hire 120 engineers and open a second office in Port Avalon.\n\nFounder Mira Castellan told us the hardest part is still the last few centimeters: getting a gripper to pick a soft bag without crushing it.\n\nRead the full interview: https://seedsheet.example/larkspur\nYou are receiving this because you subscribed. Unsubscribe: https://seedsheet.example/u"
+  },
+  "keyFacts": [
+    {
+      "fact": "Larkspur Robotics raised $40 million",
+      "terms": [
+        "Larkspur",
+        "40 million"
+      ]
+    },
+    {
+      "fact": "Tidewater Ventures led the round",
+      "terms": [
+        "Tidewater"
+      ]
+    },
+    {
+      "fact": "Runs in 85 warehouses",
+      "terms": [
+        "85"
+      ]
+    },
+    {
+      "fact": "Plans to hire 120 engineers",
+      "terms": [
+        "120"
+      ]
+    }
+  ],
+  "referenceSummary": "Larkspur Robotics, which makes shelf-picking robots for mid-sized warehouses, raised a $40 million Series B led by Tidewater Ventures, with Halcyon Fund joining. Its robots now run in 85 customer warehouses, up from 30 a year ago, and it plans to hire 120 engineers and open a second office in Port Avalon."
+}

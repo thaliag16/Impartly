@@ -1,0 +1,47 @@
+{
+  "id": "20-economy-ostravia-rates",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "deep",
+  "newsletter": {
+    "from": "Rate Watch <watch@ratewatch.example>",
+    "subject": "Bank of Ostravia holds at 3.75%",
+    "receivedAt": "2026-11-21T10:00:00Z",
+    "text": "The Bank of Ostravia held its main interest rate at 3.75% on Thursday, as expected, after cutting it twice earlier this year.\n\nGovernor Lena Marsh said inflation had fallen to 2.9% in October, from 3.4% in June, but that wage growth of 5.1% was still too fast for the bank to cut again right away. Seven of the nine policy committee members voted to hold; two wanted a quarter-point cut.\n\nThe bank now expects the economy to grow 1.2% next year, down from its earlier forecast of 1.6%. Unemployment rose to 4.6% in October.\n\nThe next decision is on February 6.\n\nNot financial advice."
+  },
+  "keyFacts": [
+    {
+      "fact": "Bank of Ostravia held at 3.75%",
+      "terms": [
+        "Ostravia",
+        "3.75 percent"
+      ]
+    },
+    {
+      "fact": "Inflation fell to 2.9%",
+      "terms": [
+        "2.9 percent"
+      ]
+    },
+    {
+      "fact": "Seven of nine voted to hold",
+      "terms": [
+        "seven|7",
+        "nine|9"
+      ]
+    },
+    {
+      "fact": "Growth forecast cut to 1.2%",
+      "terms": [
+        "1.2 percent"
+      ]
+    },
+    {
+      "fact": "Next decision February 6",
+      "terms": [
+        "February 6"
+      ]
+    }
+  ],
+  "referenceSummary": "The Bank of Ostravia held its main interest rate at 3.75% on Thursday, as expected, after two cuts earlier this year. Governor Lena Marsh said inflation had fallen to 2.9% in October from 3.4% in June, but wage growth of 5.1% was still too fast to cut again right away. Seven of the nine committee members voted to hold, while two wanted a quarter-point cut. The bank now expects growth of 1.2% next year, down from 1.6%, and unemployment rose to 4.6% in October. The next decision is on February 6."
+}

@@ -1,0 +1,34 @@
+{
+  "id": "12-health-walking-trial",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "brief",
+  "newsletter": {
+    "from": "The Pulse <pulse@thepulse.example>",
+    "subject": "Short walks, lower blood pressure",
+    "receivedAt": "2026-11-19T06:30:00Z",
+    "text": "A trial run by Kestrel University followed 2,300 adults with mildly high blood pressure for a year.\n\nThose asked to take a 20-minute walk after dinner saw their systolic blood pressure fall by an average of 6 points, compared with 2 points in the group that did not change their routine. The researchers said the effect was about half that of a typical first-line medication.\n\nThe study did not include people already on blood pressure medication. The researchers plan a larger trial with 10,000 people next year.\n\nAs always, talk to your doctor before changing anything."
+  },
+  "keyFacts": [
+    {
+      "fact": "Kestrel University trial of 2,300 adults",
+      "terms": [
+        "Kestrel",
+        "2300"
+      ]
+    },
+    {
+      "fact": "20-minute walk after dinner",
+      "terms": [
+        "20 minute"
+      ]
+    },
+    {
+      "fact": "Blood pressure fell 6 points vs 2",
+      "terms": [
+        "6 points|six points"
+      ]
+    }
+  ],
+  "referenceSummary": "A Kestrel University trial of 2,300 adults with mildly high blood pressure found that a 20-minute walk after dinner lowered systolic blood pressure by an average of 6 points over a year, compared with 2 points for those who changed nothing. The study left out people already on medication, and a trial with 10,000 people is planned next year."
+}

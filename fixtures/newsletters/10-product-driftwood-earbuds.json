@@ -1,0 +1,40 @@
+{
+  "id": "10-product-driftwood-earbuds",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "brief",
+  "newsletter": {
+    "from": "Gadget Grove <news@gadgetgrove.example>",
+    "subject": "Pinecrest's Driftwood earbuds: first look",
+    "receivedAt": "2026-11-18T14:20:00Z",
+    "text": "**Pinecrest Audio** announced the Driftwood earbuds today. 🎧\n\n- Price: $129\n- Battery: 9 hours, 30 with the case\n- Ships: January 20\n\nIn our short hands-on, noise cancelling was good but not class-leading, and the case is noticeably smaller than last year's model. Pinecrest says the buds are rated for sweat and rain.\n\n[Pre-order here](https://gadgetgrove.example/driftwood)"
+  },
+  "keyFacts": [
+    {
+      "fact": "Pinecrest Audio Driftwood earbuds",
+      "terms": [
+        "Pinecrest",
+        "Driftwood"
+      ]
+    },
+    {
+      "fact": "Priced at $129",
+      "terms": [
+        "129"
+      ]
+    },
+    {
+      "fact": "9-hour battery",
+      "terms": [
+        "9 hours|nine hours"
+      ]
+    },
+    {
+      "fact": "Ships January 20",
+      "terms": [
+        "January 20"
+      ]
+    }
+  ],
+  "referenceSummary": "Pinecrest Audio announced the Driftwood earbuds, priced at $129, with 9 hours of battery or 30 with the case, shipping January 20. In a short hands-on, noise cancelling was good but not class-leading, and the case is smaller than last year's."
+}

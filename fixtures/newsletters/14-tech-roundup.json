@@ -1,0 +1,38 @@
+{
+  "id": "14-tech-roundup",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "deep",
+  "newsletter": {
+    "from": "Byte Sized <team@bytesized.example>",
+    "subject": "Three stories: Fernway, Glasswing, Tallow",
+    "receivedAt": "2026-11-23T05:55:00Z",
+    "text": "Morning! Three things today.\n\n1) FERNWAY GOES SUBSCRIPTION-ONLY\nNote-taking app Fernway will stop selling one-time licenses on February 1. New users will pay $6 a month. Existing license holders keep their current version but will not get new features. The company says it has 2.4 million users.\n\n2) GLASSWING BUYS PATCHWORK\nDesign-tool maker Glasswing is buying Patchwork, a small startup that turns sketches into app layouts, for $310 million in cash and stock. Patchwork's 45 employees will join Glasswing's Lisbonne office.\n\n3) TALLOW'S OUTAGE\nCloud host Tallow had a six-hour outage on Thursday that took down thousands of online stores. Tallow blamed a faulty configuration change and said it will give affected customers a 25% credit on this month's bill.\n\nThat's it. See you tomorrow."
+  },
+  "keyFacts": [
+    {
+      "fact": "Fernway subscription-only from February 1 at $6/month",
+      "terms": [
+        "Fernway",
+        "February 1",
+        "6"
+      ]
+    },
+    {
+      "fact": "Glasswing buys Patchwork for $310 million",
+      "terms": [
+        "Glasswing",
+        "Patchwork",
+        "310 million"
+      ]
+    },
+    {
+      "fact": "Tallow six-hour outage, 25% credit",
+      "terms": [
+        "Tallow",
+        "25 percent"
+      ]
+    }
+  ],
+  "referenceSummary": "Three tech stories today. Note-taking app Fernway will stop selling one-time licenses on February 1, and new users will pay $6 a month; existing license holders keep their version but get no new features, and the company says it has 2.4 million users. Design-tool maker Glasswing is buying Patchwork, a startup that turns sketches into app layouts, for $310 million in cash and stock, and Patchwork's 45 employees will join Glasswing. And cloud host Tallow had a six-hour outage on Thursday that took down thousands of online stores; it blamed a faulty configuration change and will give affected customers a 25% credit on this month's bill."
+}
