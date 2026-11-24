@@ -12,6 +12,11 @@
 // counts and codes are reported, never issue text. Requests stay within the archive
 // source's limits (robots.txt, Crawl-delay, at most 1 request per second per site).
 //
+// For every entry that resolved to a feed it also prints the feed's own identity: its
+// title, the site link it declares, and the first 3 item titles and links. That is what a
+// reviewer needs to tell the newsletter's own feed from a site-wide article feed before
+// adding a discovered URL to the catalog. Titles are cut to 120 characters; no item text.
+//
 // Report only: an unreachable or feedless site does not fail the run (sites change; that
 // is information, not a code failure). The run fails only if the harness itself breaks.
 // Without VERIFY_CATALOG=1 it skips, so it never runs by accident on a machine without
@@ -22,7 +27,9 @@ import { describe, expect, it } from "vitest";
 import { loadCatalog } from "../../lib/sources/web/catalog";
 import { discoverFeed, type DiscoveryResult } from "../../lib/sources/web/discover";
 import { createPacer, discoverArchiveAt, webArchiveSource } from "../../lib/sources/web/archive-source";
-import { createWebFetcher } from "../../lib/sources/web/fetcher";
+import { createWebFetcher, LIMITS } from "../../lib/sources/web/fetcher";
+import { parseFeed } from "../../lib/sources/web/feed-parser";
+import { FEED_ACCEPT } from "../../lib/sources/web/feed-source";
 import { SourceFetchError } from "../../lib/sources/types";
 
 const enabled = process.env.VERIFY_CATALOG === "1";
@@ -32,6 +39,7 @@ describe.skipIf(!enabled)("newsletter catalog, checked live", () => {
     const catalog = loadCatalog();
     const rows: string[] = [];
     const archiveRows: string[] = [];
+    const identityRows: string[] = [];
     let found = 0;
     let archives = 0;
     let noFeed = 0;
@@ -48,6 +56,7 @@ describe.skipIf(!enabled)("newsletter catalog, checked live", () => {
         rows.push(`| ${entry.id} | no feed; public archive found (${result.feed.archive?.method}) | ${result.feed.feedUrl} | ${result.feed.itemCount} | ${entry.feedUrl ? "no" : "n/a"} | |`);
       } else if (result.ok) {
         found++;
+        identityRows.push(...(await identityRowsFor(entry.id, result.feed.feedUrl, fetcher)));
         const same = entry.feedUrl ? (result.feed.feedUrl === entry.feedUrl ? "yes" : "no (different URL)") : "n/a (none listed)";
         rows.push(`| ${entry.id} | valid ${result.feed.format} feed | ${result.feed.feedUrl} | ${result.feed.itemCount} | ${same} | |`);
       } else {
@@ -71,6 +80,14 @@ describe.skipIf(!enabled)("newsletter catalog, checked live", () => {
       ...archiveRows,
       "",
       "Report only. The sample issue is the newest one the archive source would fetch (one page, at most).",
+      "",
+      "### Feed identity: what each feed found says it is",
+      "",
+      "| Entry | Feed title | Site link | # | Item title | Item link |",
+      "| --- | --- | --- | --- | --- | --- |",
+      ...identityRows,
+      "",
+      "Report only. Use this to tell a newsletter's own feed from a site-wide article feed.",
     ].join("\n");
     console.log(table);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${table}\n`);
@@ -115,6 +132,25 @@ async function archiveRow(
     return `| ${id} | ${url} | archive found | ${archive.method} | ${archive.issueCount} | ${archive.latestIssueAt ?? "undated"} | ${sample} | ${chars} | ${partial} | ${err} |`;
   } catch (e) {
     return `| ${id} | ${url} | error | | | | | | | ${e instanceof SourceFetchError ? e.code : "error"} |`;
+  }
+}
+
+/** Table-safe, short: no pipes or line breaks, at most 120 characters. */
+function cell(s: string | undefined): string {
+  return (s ?? "").replace(/[\r\n|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+/** The feed's title, declared site link and first 3 items (title and link only). */
+async function identityRowsFor(id: string, feedUrl: string, fetcher: ReturnType<typeof createWebFetcher>): Promise<string[]> {
+  try {
+    const res = await fetcher.get(feedUrl, { accept: FEED_ACCEPT, maxBytes: LIMITS.feedBytes });
+    const parsed = res.status === 200 ? parseFeed(res.text, res.url.toString()) : null;
+    if (!parsed) return [`| ${id} | (re-read failed: ${res.status === 200 ? "not_a_feed" : `http_${res.status}`}) | | | | |`];
+    const items = parsed.items.slice(0, 3);
+    if (!items.length) return [`| ${id} | ${cell(parsed.title)} | ${cell(parsed.siteUrl)} | 0 | (no items) | |`];
+    return items.map((item, i) => `| ${id} | ${i === 0 ? cell(parsed.title) : ""} | ${i === 0 ? cell(parsed.siteUrl) : ""} | ${i + 1} | ${cell(item.title)} | ${cell(item.link)} |`);
+  } catch (e) {
+    return [`| ${id} | (re-read failed: ${e instanceof SourceFetchError ? e.code : "error"}) | | | | |`];
   }
 }
 
