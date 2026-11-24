@@ -215,9 +215,14 @@ describe.skipIf(!databaseUrl)("scheduled pull on real Postgres", () => {
       const a = await newUser({ time: "07:00", tz: "Europe/Berlin" }); // 06:00Z in November
       await addFeed(a, "https://a.example/feed");
       await settle("2026-11-24T05:40:00Z");
+      // The settings trigger (20261124120000_delivery_settings.sql) reads its clock from
+      // impartly.now, pinned here to when each change is made.
+      await q("select set_config('impartly.now', '2026-11-24T05:45:00Z', false)");
       await q("update public.user_settings set delivery_time = '06:00' where user_id = $1", [a]);
       expect(await claim("2026-11-24T05:50:00Z")).toBeNull();
+      await q("select set_config('impartly.now', '2026-11-24T07:00:00Z', false)");
       await q("update public.user_settings set delivery_time = '09:00' where user_id = $1", [a]);
+      await q("select set_config('impartly.now', '', false)");
       expect(await claim("2026-11-24T07:29:00Z")).toBeNull();
       expect((await claim("2026-11-24T07:30:00Z"))?.dueFor.toISOString()).toBe("2026-11-24T08:00:00.000Z");
     });

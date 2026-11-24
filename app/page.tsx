@@ -9,13 +9,16 @@ export default function Home() {
       <div className="px-field">
         <h1 className="px-h1">Your newsletters, read to you.</h1>
         <p className="px-body">
-          So far: pick the newsletters you want, connect Gmail (optional, read-only) and try the Phase 0 audio test.
+          So far: pick the newsletters you want, set when your briefing is ready, connect Gmail (optional, read-only) and try the Phase 0 audio test.
         </p>
       </div>
       <Link href="/newsletters" className="px-btn px-btn-primary">
         Pick newsletters
       </Link>
       <nav aria-label="More" className="px-row">
+        <Link href="/settings" className="px-btn">
+          Delivery time
+        </Link>
         <Link href="/mail" className="px-btn">
           Mail connection
         </Link>

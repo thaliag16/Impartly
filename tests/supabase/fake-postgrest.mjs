@@ -4,6 +4,10 @@
 //   * POST /rest/v1/rpc/<fn>           feeds_discovery_take, feeds_subscribe,
 //                                      feeds_set_included, feeds_remove: service key only,
 //                                      each scoped to the p_user_id it is given, as the SQL is
+//   * GET/PATCH/POST /rest/v1/user_settings   the signed-in user's own row only (as RLS would
+//                                      allow): read, update, insert; another user's id is refused
+//   * POST /rest/v1/rpc/delivery_next_after   service key only; a stand-in for the SQL math
+//                                      (tested on real Postgres in tests/db/delivery-settings.test.ts)
 //   * any other GET /rest/v1/<table>   [] for a signed-in user (no database here)
 // Test controls (not part of Supabase): POST /__e2e/reset, POST /__e2e/exhaust-rate-limit,
 // GET /__e2e/state. The SQL these stand in for is tested on real Postgres in tests/db/.
@@ -18,12 +22,14 @@ const json = (status, body) =>
  */
 export function createFakePostgrest({ serviceKey, userIdForToken }) {
   let feeds = []; // { id, user_id, feed_url, feed_format, title, homepage_url, catalog_id, included, ... }
+  let settings = []; // { user_id, delivery_time ("07:00:00"), timezone, updated_at }
   let attempts = new Map(); // user id -> [ms timestamps]
   let exhausted = false;
   const calls = [];
 
   const reset = () => {
     feeds = [];
+    settings = [];
     attempts = new Map();
     exhausted = false;
     calls.length = 0;
@@ -72,6 +78,9 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
       feeds = feeds.filter((x) => !(x.id === p_feed_id && x.user_id === p_user_id));
       return feeds.length < before;
     },
+    delivery_next_after({ p_after, p_time, p_tz }) {
+      return nextDeliveryAfter(new Date(p_after), String(p_time), String(p_tz)).toISOString();
+    },
   };
 
   /** Returns a Response, or null when the path is not this fake's. */
@@ -86,7 +95,7 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
       return json(200, { ok: true });
     }
     if (url.pathname === "/__e2e/state" && request.method === "GET") {
-      return json(200, { feeds, calls });
+      return json(200, { feeds, settings, calls });
     }
     if (!url.pathname.startsWith("/rest/v1/")) return null;
 
@@ -102,6 +111,12 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
       const args = await request.json().catch(() => ({}));
       calls.push({ fn: rpcMatch[1], args });
       return json(200, fn(args));
+    }
+
+    if (url.pathname === "/rest/v1/user_settings") {
+      const userId = await userIdForToken(bearer);
+      if (!userId) return json(401, { message: "JWT invalid" });
+      return userSettings(request, url, userId);
     }
 
     if (request.method === "GET") {
@@ -120,5 +135,82 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     return json(405, { message: "not supported by the fake" });
   }
 
+  async function userSettings(request, url, userId) {
+    const pick = (row) => {
+      const cols = (url.searchParams.get("select") ?? "*").split(",").map((c) => c.trim());
+      return cols.includes("*") ? { ...row } : Object.fromEntries(cols.map((c) => [c, row[c] ?? null]));
+    };
+    const own = () => settings.filter((r) => r.user_id === userId);
+    const validTime = (t) => typeof t === "string" && /^([01]\d|2[0-3]):[0-5]\d(:00)?$/.test(t);
+    const validZone = (tz) => {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: tz });
+        return typeof tz === "string";
+      } catch {
+        return false;
+      }
+    };
+    const check = (body) => {
+      if ("delivery_time" in body && !validTime(body.delivery_time)) return json(400, { code: "22007", message: "invalid time" });
+      if ("timezone" in body && !validZone(body.timezone)) return json(400, { code: "23514", message: "check violation" });
+      return null;
+    };
+    const asTime = (t) => (t.length === 5 ? `${t}:00` : t);
+
+    if (request.method === "GET") return json(200, own().map(pick));
+    const body = await request.json().catch(() => ({}));
+    if (request.method === "PATCH") {
+      // Only `user_id=eq.<id>` filters; RLS limits the update to the caller's own row anyway.
+      const filter = url.searchParams.get("user_id");
+      const target = filter?.startsWith("eq.") ? filter.slice(3) : null;
+      const bad = check(body);
+      if (bad) return bad;
+      const rows = own().filter((r) => target === null || r.user_id === target);
+      for (const r of rows) {
+        if (body.delivery_time) r.delivery_time = asTime(body.delivery_time);
+        if (body.timezone) r.timezone = body.timezone;
+        r.updated_at = new Date().toISOString();
+      }
+      return url.searchParams.has("select") ? json(200, rows.map(pick)) : new Response(null, { status: 204 });
+    }
+    if (request.method === "POST") {
+      if (body.user_id !== userId) return json(403, { code: "42501", message: "new row violates row-level security policy" });
+      if (own().length) return json(409, { code: "23505", message: "duplicate key value" });
+      const bad = check(body);
+      if (bad) return bad;
+      settings.push({
+        user_id: userId,
+        delivery_time: asTime(body.delivery_time ?? "07:00"),
+        timezone: body.timezone ?? "UTC",
+        updated_at: new Date().toISOString(),
+      });
+      return new Response(null, { status: 201 });
+    }
+    return json(405, { message: "not supported by the fake" });
+  }
+
   return { handle, reset };
+}
+
+/** Minutes east of UTC for `tz` at instant `t`. */
+function offsetMinutes(t, tz) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(t)
+      .map((x) => [x.type, x.value]),
+  );
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute) - Math.floor(t.getTime() / 60000) * 60000) / 60000;
+}
+
+/** A simple stand-in for the SQL math (the plain conversion; DST edge cases are tested in SQL). */
+function nextDeliveryAfter(after, hhmm, tz) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const local = new Date(after.getTime() + offsetMinutes(after, tz) * 60000);
+  for (let d = -1; d <= 2; d++) {
+    const wall = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + d, h, m);
+    const guess = new Date(wall - offsetMinutes(new Date(wall), tz) * 60000);
+    const at = new Date(wall - offsetMinutes(guess, tz) * 60000);
+    if (at > after) return at;
+  }
+  throw new Error("no delivery found");
 }

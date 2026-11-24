@@ -31,11 +31,16 @@ export default async function NewslettersPage() {
         <Link href="/" className="px-wordmark">
           impartly
         </Link>
-        <form method="post" action="/auth/sign-out">
-          <button type="submit" className="px-btn px-btn-quiet">
-            Sign out
-          </button>
-        </form>
+        <nav aria-label="Pages" className="px-row">
+          <Link href="/settings" className="px-btn px-btn-quiet">
+            Delivery time
+          </Link>
+          <form method="post" action="/auth/sign-out">
+            <button type="submit" className="px-btn px-btn-quiet">
+              Sign out
+            </button>
+          </form>
+        </nav>
       </header>
       <div className="px-field">
         <span className="px-label px-muted">Pick what you hear</span>
