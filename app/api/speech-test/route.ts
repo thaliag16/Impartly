@@ -51,6 +51,10 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const voice = url.searchParams.get("voice") ?? "af_heart";
+  // Only the two voices the app offers; anything else is rejected before the model loads.
+  if (voice !== "af_heart" && voice !== "bm_daniel") {
+    return Response.json({ error: "Unknown voice." }, { status: 400 });
+  }
   const wantAudio = url.searchParams.get("audio") === "1";
   const text = url.searchParams.get("short") === "1" ? SAMPLE.split(". ").slice(0, 3).join(". ") + "." : SAMPLE;
 
@@ -87,9 +91,8 @@ export async function GET(request: Request) {
       voices: Object.keys(tts.voices ?? {}),
     });
   } catch (error) {
-    return Response.json(
-      { error: (error as Error).message, stack: (error as Error).stack?.split("\n").slice(0, 6) },
-      { status: 500 },
-    );
+    // Log the details on the server; never send stack traces to the browser.
+    console.error("speech-test failed", error);
+    return Response.json({ error: "Speech test failed." }, { status: 500 });
   }
 }
