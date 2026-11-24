@@ -124,9 +124,17 @@ and drops its own database. Without `DATABASE_URL` they are skipped locally; CI 
 The newsletter catalog (`data/newsletter-catalog.json`) is editable. `npm run verify:catalog`
 checks every entry against the live sites (it needs internet access; CI runs it on pull
 requests that touch the catalog and writes a report to the job summary). Mark an entry
-`verified: true` only after that report shows a valid feed for it. For entries with no
-feed, the report also tries the public archive fallback (`archiveUrl` in the catalog, else
-the homepage) and says what it found: counts and codes only, never issue text.
+`verified: true` only after that report shows a valid feed (or a readable public archive)
+for it, and record the run in `verifiedAt` (its UTC date) and `verifiedRunId` (its GitHub
+Actions run id); the catalog test checks the list of verified entries and that each run id
+is logged in PROGRESS.md. Before adding a feed URL that discovery found, check the report's
+"Feed identity" table (the feed's title, site link and first 3 items) to make sure it is
+the newsletter's own feed and not the site's article feed. For entries with no feed, the
+report also tries the public archive fallback (`archiveUrl` in the catalog, else the
+homepage) and gives counts and codes only, never issue text. An entry whose site refuses
+automated readers can be kept with `unavailable: "refuses_automated_access"`; the picker
+then explains that instead of fetching. `pickerNote` is a short line shown with an entry's
+preview.
 
 The look (GOAL.md section 1a) lives in one file, `app/theme.css`: colour tokens, borders,
 shadows and the shared classes. No colour value may appear anywhere else in the UI

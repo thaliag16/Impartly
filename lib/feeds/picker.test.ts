@@ -9,6 +9,7 @@ import { loadCatalog, type CatalogEntry } from "../sources/web/catalog";
 import { createWebFetcher } from "../sources/web/fetcher";
 import { fakeResolve, fakeTransport, fakeWebEnabled } from "./e2e-fake-web";
 import { matchPicks } from "./search";
+import { ERROR_MESSAGES } from "./types";
 import {
   addNewsletter,
   catalogPicks,
@@ -161,6 +162,57 @@ describe("previewNewsletter", () => {
     const r = fakeRpc();
     r.fail = true;
     expect(await previewNewsletter(USER, "ledger", deps(ledgerWeb(), r))).toEqual({ ok: false, error: "failed" });
+  });
+});
+
+describe("catalog entries marked unavailable or carrying a picker note", () => {
+  const REFUSING: CatalogEntry = {
+    id: "refusing-weekly",
+    name: "Refusing Weekly",
+    aliases: ["Refusing"],
+    homepageUrl: "https://refusing.example/newsletters/weekly",
+    feedUrl: null,
+    verified: false,
+    unavailable: "refuses_automated_access",
+  };
+  const ESSAYS: CatalogEntry = { ...CATALOG[0], pickerNote: "These are the author's essays, not the weekly newsletter." };
+
+  it("an unavailable entry is explained by name, before the rate limit or any request", async () => {
+    for (const q of ["Refusing Weekly", "refusing", "refusing-weekly"]) {
+      const web = ledgerWeb();
+      const r = fakeRpc();
+      expect(await previewNewsletter(USER, q, deps(web, r, [REFUSING]))).toEqual({ ok: false, error: "unavailable" });
+      expect(await addNewsletter(USER, q, deps(web, r, [REFUSING]))).toEqual({ ok: false, error: "unavailable" });
+      expect(r.calls).toEqual([]);
+      expect(web.requests).toEqual([]);
+    }
+  });
+
+  it("the unavailable message says why, and that it is not worked around", () => {
+    expect(ERROR_MESSAGES.unavailable).toMatch(/refuses automated/i);
+    expect(ERROR_MESSAGES.unavailable).not.toBe(ERROR_MESSAGES.not_found);
+  });
+
+  it("catalog picks flag unavailable entries so the list can say so", () => {
+    const picks = catalogPicks([CATALOG[0], REFUSING]);
+    expect(picks.find((p) => p.id === "refusing-weekly")?.unavailable).toBe(true);
+    expect(picks.find((p) => p.id === "invented-ledger")?.unavailable).toBeUndefined();
+  });
+
+  it("a catalog entry's picker note is shown in the preview; other previews have none", async () => {
+    const out = await previewNewsletter(USER, "ledger", deps(ledgerWeb(), fakeRpc(), [ESSAYS]));
+    expect(out.ok && out.preview.note).toBe(ESSAYS.pickerNote);
+    const plain = await previewNewsletter(USER, "ledger", deps(ledgerWeb(), fakeRpc()));
+    expect(plain.ok && "note" in plain.preview).toBe(false);
+  });
+
+  it("in the real catalog, Axios Pro Rata is unavailable", async () => {
+    const catalog = loadCatalog();
+    const web = ledgerWeb();
+    const r = fakeRpc();
+    expect(await previewNewsletter(USER, "Axios Pro Rata", deps(web, r, catalog))).toEqual({ ok: false, error: "unavailable" });
+    expect(web.requests).toEqual([]);
+    expect(catalogPicks(catalog).find((p) => p.id === "axios-pro-rata")?.unavailable).toBe(true);
   });
 });
 

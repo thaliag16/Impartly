@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import rawCatalog from "../../../data/newsletter-catalog.json";
 import { createFakeWeb, feedFixture, rss } from "../../../tests/web/fake-web";
@@ -166,14 +167,74 @@ describe("discoverFeed", () => {
 });
 
 describe("catalog", () => {
-  it("data/newsletter-catalog.json is valid and every entry is unverified until checked live", () => {
+  // The entries a live catalog check (`npm run verify:catalog`, a GitHub Actions run) showed
+  // working, with the run that showed it. Changing this list is a reviewed edit: add an id
+  // here only with the run id and date in the catalog and the run named in PROGRESS.md.
+  const VERIFIED: Record<string, number> = {
+    techcrunch: 45333404039,
+    stratechery: 45333404039,
+    "lennys-newsletter": 45333404039,
+    "not-boring": 45333404039,
+    platformer: 45333404039,
+    "exponential-view": 45333404039,
+    "pragmatic-engineer": 45333404039,
+    "tomasz-tunguz": 45333404039,
+    "the-generalist": 45333404039,
+    "benedict-evans": 45333404039,
+  };
+
+  it("data/newsletter-catalog.json is valid, and its verified entries are exactly the ones a recorded live run backs", () => {
     expect(validateCatalog(rawCatalog)).toEqual([]);
     const entries = loadCatalog();
     expect(entries.length).toBeGreaterThanOrEqual(13);
     for (const id of ["techcrunch", "strictlyvc", "morning-brew"]) expect(entries.map((e) => e.id)).toContain(id);
-    // Nothing was reachable when these were written; only verify:catalog may flip this.
-    for (const e of entries) expect(e.verified, e.id).toBe(false);
+    expect(entries.filter((e) => e.verified).map((e) => e.id).sort()).toEqual(Object.keys(VERIFIED).sort());
+    const progress = readFileSync(new URL("../../../PROGRESS.md", import.meta.url), "utf8");
+    // The first catalog check ran on 2026-11-23 (UTC); nothing can be verified before it or in the future.
+    const first = Date.parse("2026-11-23T00:00:00Z");
+    for (const e of entries.filter((x) => x.verified)) {
+      expect(e.verifiedRunId, e.id).toBe(VERIFIED[e.id]);
+      expect(e.verifiedAt, e.id).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      const at = Date.parse(`${e.verifiedAt}T00:00:00Z`);
+      expect(at >= first && at <= Date.now(), `${e.id} verifiedAt ${e.verifiedAt}`).toBe(true);
+      expect(progress, `${e.id}: run ${e.verifiedRunId} must be logged in PROGRESS.md`).toContain(String(e.verifiedRunId));
+      expect(e.unavailable, e.id).toBeUndefined();
+      // A verified feed entry names its feed; a verified archive entry names its archive.
+      expect(e.feedUrl ?? e.archiveUrl, e.id).toBeTruthy();
+    }
+    for (const e of entries.filter((x) => !x.verified)) {
+      expect(e.verifiedAt, e.id).toBeUndefined();
+      expect(e.verifiedRunId, e.id).toBeUndefined();
+    }
     for (const e of entries) if (e.feedUrl) expect(e.note, `${e.id} needs a note saying where its feed URL came from`).toBeTruthy();
+  });
+
+  it("Benedict Evans is labelled as his essays, not the weekly email, for the picker", () => {
+    const be = loadCatalog().find((e) => e.id === "benedict-evans")!;
+    expect(be.archiveUrl).toBe("https://www.ben-evans.com/benedictevans");
+    expect(be.pickerNote).toMatch(/essays/i);
+    expect(be.pickerNote).toMatch(/not the weekly (email )?newsletter/i);
+  });
+
+  it("Axios Pro Rata stays findable but is marked unavailable, with no feed and no archive", () => {
+    const ax = loadCatalog().find((e) => e.id === "axios-pro-rata")!;
+    expect(ax.unavailable).toBe("refuses_automated_access");
+    expect(ax.verified).toBe(false);
+    expect(ax.feedUrl).toBeNull();
+    expect(ax.archiveUrl).toBeUndefined();
+  });
+
+  it("verification fields, unavailable and pickerNote are checked", () => {
+    const base = { id: "x-1", name: "X", homepageUrl: "https://x.example/", feedUrl: null };
+    expect(validateCatalog({ entries: [{ ...base, verified: true }] })).toEqual([expect.stringContaining("verifiedAt"), expect.stringContaining("verifiedRunId")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "2026-11-24", verifiedRunId: 0 }] })).toEqual([expect.stringContaining("verifiedRunId")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "24/11/2026", verifiedRunId: 1 }] })).toEqual([expect.stringContaining("verifiedAt")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "2026-11-24", verifiedRunId: 1 }] })).toEqual([]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, verifiedAt: "2026-11-24", verifiedRunId: 1 }] })).toEqual([expect.stringContaining("unverified")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, unavailable: "refuses_automated_access" }] })).toEqual([]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, unavailable: "down" }] })).toEqual([expect.stringContaining("unavailable")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "2026-11-24", verifiedRunId: 1, unavailable: "refuses_automated_access" }] })).toEqual([expect.stringContaining("unavailable")]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, pickerNote: "x".repeat(201) }] })).toEqual([expect.stringContaining("pickerNote")]);
   });
 
   it("validation catches malformed entries", () => {

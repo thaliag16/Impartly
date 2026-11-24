@@ -6,6 +6,7 @@ export type PickerError =
   | "signed_out"
   | "invalid_input"
   | "not_found"
+  | "unavailable"
   | "no_feed"
   | "robots"
   | "refused"
@@ -31,6 +32,8 @@ export interface FeedPreview {
   lastIssueAt: string | null;
   itemCount: number;
   fromCatalog: boolean;
+  /** A short line from the catalog about this source (e.g. what it holds), if any. */
+  note?: string;
 }
 
 export type PreviewOutcome = { ok: true; preview: FeedPreview } | { ok: false; error: PickerError };
@@ -54,6 +57,8 @@ export interface CatalogPick {
   name: string;
   site: string;
   aliases: string[];
+  /** Impartly cannot read this one (its site refuses automated readers). */
+  unavailable?: true;
 }
 
 export const ERROR_MESSAGES: Record<PickerError | "not_yours", string> = {
@@ -61,6 +66,8 @@ export const ERROR_MESSAGES: Record<PickerError | "not_yours", string> = {
   invalid_input: "Type a newsletter name, a website (like example.com) or a feed address.",
   not_found:
     "That name is not in Impartly's catalog yet. Paste the newsletter's website or feed address instead.",
+  unavailable:
+    "That newsletter's site refuses automated readers, so Impartly can't fetch it. Impartly does not get around that.",
   no_feed: "No public feed was found on that site, and no public list of past issues either.",
   robots: "That site asks automated readers not to fetch it (robots.txt), so Impartly won't.",
   refused: "That site refused the request. Impartly does not get around sign-ins or paywalls.",

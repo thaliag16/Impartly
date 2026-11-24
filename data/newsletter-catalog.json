@@ -1,13 +1,15 @@
 {
-  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. Every entry is verified: false until `npm run verify:catalog` (run from a GitHub runner) finds a valid feed at it; the agent that wrote these could not reach any of the sites. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage. archiveUrl (optional): the public archive page to read when no feed is found.",
+  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. An entry is verified: true only when a live `npm run verify:catalog` run (the \"Catalog check\" GitHub Actions workflow) showed its feed or public archive working, and verifiedAt (UTC date) and verifiedRunId record that run; everything else is verified: false. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage. archiveUrl (optional): the public archive page to read when no feed is found. pickerNote (optional): a short line the picker shows with the preview. unavailable (optional): Impartly cannot read this newsletter (refuses_automated_access: the site refuses automated readers), so the picker explains instead of fetching. note: for maintainers.",
   "entries": [
     {
       "id": "techcrunch",
       "name": "TechCrunch",
       "homepageUrl": "https://techcrunch.com/",
       "feedUrl": "https://techcrunch.com/feed/",
-      "verified": false,
-      "note": "Site-wide article feed (WordPress /feed/ convention), from memory, not checked. TechCrunch's email newsletters may not have feeds of their own."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Site-wide article feed (WordPress /feed/ convention); feed title TechCrunch, items are TechCrunch articles. TechCrunch's email newsletters do not have feeds of their own that we know of."
     },
     {
       "id": "strictlyvc",
@@ -16,7 +18,7 @@
       "homepageUrl": "https://strictlyvc.com/",
       "feedUrl": null,
       "verified": false,
-      "note": "No feed URL known for certain; discovery reads the homepage's advertised feed or tries /feed."
+      "note": "Unverified. Discovery finds https://strictlyvc.com/feed/ (feed title \"StrictlyVC, LLC\", daily issues named by date), but in the live check its first 3 items were issues titled with 2019 dates (\"November 1, 2019\" and earlier), so the feed looks stale and is not listed here. Discovery still reads the homepage; the picker preview shows the last issue date."
     },
     {
       "id": "morning-brew",
@@ -24,7 +26,7 @@
       "homepageUrl": "https://www.morningbrew.com/",
       "feedUrl": null,
       "verified": false,
-      "note": "No official RSS feed known; discovery will look. The run-11 live check found /feed.xml (whether it carries the newsletter itself is not checked). If no feed is found, the homepage is read as a public archive."
+      "note": "Unverified. Discovery finds https://www.morningbrew.com/feed.xml, but the live check showed it carries site stories (/stories/..., e.g. shopping guides), not the daily newsletter issues, so it is not listed here. No public archive of the newsletter itself is known."
     },
     {
       "id": "stratechery",
@@ -32,8 +34,10 @@
       "aliases": ["Ben Thompson"],
       "homepageUrl": "https://stratechery.com/",
       "feedUrl": "https://stratechery.com/feed/",
-      "verified": false,
-      "note": "Public articles feed (WordPress /feed/ convention), from memory, not checked. Subscriber-only updates are not in it and are never fetched."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Public articles feed (WordPress /feed/ convention); feed title \"Stratechery by Ben Thompson\". Subscriber-only updates are not in it and are never fetched."
     },
     {
       "id": "lennys-newsletter",
@@ -41,7 +45,9 @@
       "aliases": ["Lenny Rachitsky", "Lennys Newsletter"],
       "homepageUrl": "https://www.lennysnewsletter.com/",
       "feedUrl": "https://www.lennysnewsletter.com/feed",
-      "verified": false,
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
       "note": "Substack publication; Substack serves every publication's feed at /feed. Paid posts appear as previews and are marked partial."
     },
     {
@@ -50,8 +56,10 @@
       "aliases": ["Packy McCormick"],
       "homepageUrl": "https://www.notboring.co/",
       "feedUrl": "https://www.notboring.co/feed",
-      "verified": false,
-      "note": "Substack publication (/feed convention), not checked."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Substack publication (/feed convention); items are the newsletter's posts (/p/...)."
     },
     {
       "id": "platformer",
@@ -59,8 +67,10 @@
       "aliases": ["Casey Newton"],
       "homepageUrl": "https://www.platformer.news/",
       "feedUrl": "https://www.platformer.news/rss/",
-      "verified": false,
-      "note": "Ghost publication to the author's knowledge (Ghost serves /rss/), not checked. Paid posts are marked partial."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Ghost publication (Ghost serves /rss/). Paid posts are marked partial."
     },
     {
       "id": "exponential-view",
@@ -68,8 +78,10 @@
       "aliases": ["Azeem Azhar"],
       "homepageUrl": "https://www.exponentialview.co/",
       "feedUrl": "https://www.exponentialview.co/feed",
-      "verified": false,
-      "note": "Substack publication (/feed convention), not checked."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Substack publication (/feed convention); items are the newsletter's posts (/p/...)."
     },
     {
       "id": "pragmatic-engineer",
@@ -77,8 +89,10 @@
       "aliases": ["Pragmatic Engineer", "Gergely Orosz"],
       "homepageUrl": "https://newsletter.pragmaticengineer.com/",
       "feedUrl": "https://newsletter.pragmaticengineer.com/feed",
-      "verified": false,
-      "note": "Substack publication (/feed convention), not checked. Many posts are paid and will be partial."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Substack publication (/feed convention). Many posts are paid and will be partial."
     },
     {
       "id": "tomasz-tunguz",
@@ -86,8 +100,10 @@
       "aliases": ["Tunguz", "Theory Ventures blog"],
       "homepageUrl": "https://tomtunguz.com/",
       "feedUrl": "https://tomtunguz.com/index.xml",
-      "verified": false,
-      "note": "Hugo site to the author's knowledge (Hugo serves /index.xml), not checked."
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Hugo site (Hugo serves /index.xml). The live check saw only 2 items in the feed."
     },
     {
       "id": "benedict-evans",
@@ -95,18 +111,23 @@
       "aliases": ["Ben Evans"],
       "homepageUrl": "https://www.ben-evans.com/",
       "feedUrl": null,
-      "verified": false,
-      "note": "No feed URL known for certain; discovery reads the homepage. The weekly newsletter itself may only be email. archiveUrl is the essays page (a Squarespace blog, from memory, not checked), read as a public archive if no feed is found; it holds the essays, not the email newsletter.",
-      "archiveUrl": "https://www.ben-evans.com/benedictevans"
+      "archiveUrl": "https://www.ben-evans.com/benedictevans",
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "pickerNote": "These are Benedict Evans' essays, not the weekly newsletter, which is sent by email only.",
+      "note": "No feed (the live check got http_404 on the feed paths). archiveUrl is his essays page, read as a public archive: the live check listed 10 essays by <article> markup and read the newest (not partial). It holds the essays, not the weekly email newsletter, which has no public source we know of."
     },
     {
       "id": "the-generalist",
       "name": "The Generalist",
       "aliases": ["Generalist"],
       "homepageUrl": "https://www.generalist.com/",
-      "feedUrl": null,
-      "verified": false,
-      "note": "Host platform not known for certain; discovery reads the homepage and tries the common paths."
+      "feedUrl": "https://www.generalist.com/feed",
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45333404039,
+      "note": "Feed found by discovery at /feed (Substack-style); the live check showed feed title \"The Generalist\", site link generalist.com and newsletter posts (/p/...), so it is the newsletter's own feed."
     },
     {
       "id": "axios-pro-rata",
@@ -115,7 +136,8 @@
       "homepageUrl": "https://www.axios.com/newsletters/axios-pro-rata",
       "feedUrl": null,
       "verified": false,
-      "note": "No per-newsletter feed known; discovery will look, then read this page as a public archive. The run-11 live check got HTTP 403 here, which Impartly does not work around."
+      "unavailable": "refuses_automated_access",
+      "note": "Kept so a search for it explains itself. Live checks (runs 45279821252, 45327358059 and 45333404039) got HTTP 403 on this page and no feed or archive, which Impartly does not work around."
     },
     {
       "id": "fortune-term-sheet",
@@ -124,7 +146,7 @@
       "homepageUrl": "https://fortune.com/newsletters/termsheet/",
       "feedUrl": null,
       "verified": false,
-      "note": "No per-newsletter feed known; discovery will look. May be partly paywalled; anything behind it is not read."
+      "note": "Unverified. Discovery finds a Fortune feed (https://fortune.com/feed/fortune-feeds/?id=3230629) from this page, but the live check showed feed title \"Fortune FORTUNE\" and general Fortune articles, not Term Sheet issues, so it is not listed here. May be partly paywalled; anything behind it is not read."
     }
   ]
 }

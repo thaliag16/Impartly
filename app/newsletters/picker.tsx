@@ -188,6 +188,11 @@ export function Picker({
                   <span className="px-grow">
                     <strong>{m.name}</strong>
                     <span className="px-label px-muted">{m.site}</span>
+                    {m.unavailable ? (
+                      <span className="px-label px-muted" data-testid="pick-unavailable">
+                        Not available: site refuses automated readers
+                      </span>
+                    ) : null}
                   </span>
                   <button type="button" className="px-btn" disabled={!!busy} aria-label={`Check ${m.name}`} onClick={() => {
                     setQuery(m.name);
@@ -224,6 +229,11 @@ export function Picker({
               <dt className="px-label">{preview.kind === "archive" ? "Issues listed" : "Issues in feed"}</dt>
               <dd style={{ margin: 0 }}>{preview.itemCount}</dd>
             </dl>
+            {preview.note ? (
+              <p className="px-body" data-testid="preview-note">
+                {preview.note}
+              </p>
+            ) : null}
             {preview.kind === "archive" && preview.issues?.length ? (
               <>
                 <p className="px-body">

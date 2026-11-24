@@ -3,7 +3,7 @@
 // fetcher (lib/feeds/e2e-fake-web.ts). Nothing leaves the machine.
 //
 // Covers: the empty state's catalog picks; search → check → add → switch off → remove;
-// pasting a domain; a site with no feed offered as a public archive; keyboard-only use; the error states (not in the catalog, robots.txt,
+// pasting a domain; a site with no feed offered as a public archive; keyboard-only use; a catalog entry marked unavailable; the error states (not in the catalog, robots.txt,
 // a private address, a site refusing, rate-limited); and on every screen state, axe-core
 // (WCAG 2.1 A/AA), 44px targets and at most one watermelon control.
 
@@ -200,5 +200,20 @@ test("error states: not in the catalog, robots.txt, a private address, a refusin
   await input.fill("TechCrunch");
   await page.getByTestId("find").click();
   await expect(error).toHaveText(/a lot of lookups/);
+  expect(await storedFeeds(page)).toEqual([]);
+});
+
+test("a catalog newsletter Impartly cannot read says so in the list and on Check, without fetching or storing", async ({ page }) => {
+  await page.getByLabel("Name or website").fill("Pro Rata");
+  const matches = page.getByRole("list", { name: "Catalog matches" });
+  await expect(matches.getByText("Axios Pro Rata")).toBeVisible();
+  await expect(matches.getByTestId("pick-unavailable")).toHaveText(/Not available: site refuses automated readers/);
+  await checkScreen(page, "unavailable catalog match");
+  await page.getByRole("button", { name: "Check Axios Pro Rata" }).click();
+  const error = page.getByTestId("picker-error");
+  await expect(error).toHaveText(/refuses automated readers, so Impartly can't fetch it/);
+  await expect(error).toHaveAttribute("role", "alert");
+  await expect(page.getByTestId("preview")).toHaveCount(0);
+  await checkScreen(page, "unavailable error");
   expect(await storedFeeds(page)).toEqual([]);
 });
