@@ -1,0 +1,28 @@
+{
+  "id": "03-transit-harbor-line",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "headline",
+  "newsletter": {
+    "from": "Metro Notes <notes@metronotes.example>",
+    "subject": "Harbor Line opens to Fenwick on March 14",
+    "receivedAt": "2026-11-21T12:00:00Z",
+    "text": "The Harbor Line extension to Fenwick opens on March 14, adding six stations and cutting the ride downtown to 22 minutes.\nThe flat fare stays at $2.75. Weekend service will run every 10 minutes.\nStation map (PDF): https://metronotes.example/map.pdf"
+  },
+  "keyFacts": [
+    {
+      "fact": "Harbor Line extension to Fenwick",
+      "terms": [
+        "Harbor Line",
+        "Fenwick"
+      ]
+    },
+    {
+      "fact": "Opens March 14",
+      "terms": [
+        "March 14"
+      ]
+    }
+  ],
+  "referenceSummary": "The Harbor Line extension to Fenwick opens on March 14, adding six stations and cutting the ride downtown to 22 minutes, with the fare staying at $2.75."
+}

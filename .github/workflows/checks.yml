@@ -1,0 +1,184 @@
+# Runs every check from GOAL.md section 4 on each push and pull request.
+#
+# Free: GitHub-hosted runners only, no paid services. The "checks" and "models" jobs use
+# no secrets, so pull requests from forks run them the same way. The one exception is the
+# optional "summary-eval" job below, which calls a summary model only when the repository
+# has a SUMMARY_API_KEY secret, and otherwise skips with a notice.
+# Third-party actions are pinned to full commit SHAs (tag in the trailing comment).
+
+name: Checks
+
+on:
+  # Every branch, so stacked pull requests (base is not main) are checked too.
+  pull_request:
+  push:
+    branches: ["**"]
+  # Lets the owner re-run the real summary eval by hand (Actions tab, "Run workflow").
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Build, typecheck, lint, test, secrets, e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Secret scan
+        run: npm run scan:secrets
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The RLS tests (tests/db) need a real Postgres. The runner image ships PostgreSQL
+      # with its service stopped; start it and give the postgres role a password for TCP.
+      # Throwaway server on this runner only, so the password is not a secret. The tests
+      # create and drop their own database. With CI=true they fail if DATABASE_URL is unset.
+      - name: Start local PostgreSQL (for the RLS tests)
+        run: |
+          sudo systemctl start postgresql.service
+          pg_isready --timeout=30
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -c "alter user postgres password 'postgres'"
+          sudo -u postgres psql -Atc "select version()"
+
+      - name: Unit tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm test
+
+      # No secret here: this checks the eval harness with a fake provider and says so in
+      # the log. The real model eval is the separate summary-eval job.
+      - name: Summary eval harness self-test
+        run: npm run eval:summaries
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: UI tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Speech model tests (GOAL.md Phase 0): Kokoro duration, and Moonshine word error rate
+  # on Kokoro-rendered question clips. Separate job so the checks above stay fast.
+  # Model files come from the publisher's Hugging Face repository at the commit pinned in
+  # scripts/model-pins.json and are verified by SHA-256 before use (SECURITY.md). This job
+  # fails if the files cannot be fetched or verified; it never skips.
+  models:
+    name: Speech model tests (Kokoro, Moonshine)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      REQUIRE_MODELS: "1"
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Keyed on the pins file, which holds the revision and every file's SHA-256, so a
+      # new pin gets a new cache. Cached files are re-verified by the next step anyway.
+      - name: Cache model files
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: models
+          key: models-${{ hashFiles('scripts/model-pins.json') }}
+
+      - name: Fetch and verify model files
+        run: npm run fetch:models
+
+      - name: Model tests
+        run: npm run test:models
+
+  # Summary eval against a real model (GOAL.md section 4, Phase 1: at least 90%).
+  # Needs, in the repository settings under Secrets and variables > Actions:
+  #   secret   SUMMARY_API_KEY   key for the summary model's endpoint
+  #   variable SUMMARY_BASE_URL  OpenAI-compatible base URL, e.g. https://host/v1
+  #   variable SUMMARY_MODEL     model name for that endpoint
+  # Without the secret (including on pull requests from forks) every step after the first
+  # is skipped and the run shows a notice; it neither fails nor reports a score. If the
+  # secret is set but a variable is missing, the eval fails and names the missing setting.
+  # Runs on pull requests and by hand, not on every push, to keep model spend down
+  # (20 short requests per run).
+  summary-eval:
+    name: Summary eval (real model, needs SUMMARY_API_KEY)
+    if: github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      SUMMARY_API_KEY: ${{ secrets.SUMMARY_API_KEY }}
+      SUMMARY_BASE_URL: ${{ vars.SUMMARY_BASE_URL }}
+      SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
+    steps:
+      - name: Skip notice (no SUMMARY_API_KEY secret)
+        if: env.SUMMARY_API_KEY == ''
+        run: echo "::notice title=Summary eval skipped::No SUMMARY_API_KEY secret is set, so no model was evaluated. Add the secret and the SUMMARY_BASE_URL and SUMMARY_MODEL variables to run it."
+
+      - name: Check out
+        if: env.SUMMARY_API_KEY != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        if: env.SUMMARY_API_KEY != ''
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        if: env.SUMMARY_API_KEY != ''
+        run: npm ci
+
+      - name: Summary eval
+        if: env.SUMMARY_API_KEY != ''
+        run: npm run eval:summaries

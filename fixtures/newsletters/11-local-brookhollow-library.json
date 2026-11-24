@@ -1,0 +1,28 @@
+{
+  "id": "11-local-brookhollow-library",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "headline",
+  "newsletter": {
+    "from": "Brookhollow Bulletin <bulletin@brookhollow.example>",
+    "subject": "Library reopens Saturday",
+    "receivedAt": "2026-11-20T18:00:00Z",
+    "text": "The Brookhollow Public Library reopens this Saturday after an 18-month, $3.4 million renovation that added a children's wing and a recording studio.\nDoors open at 10 a.m. Parking on Elm Street is free all weekend."
+  },
+  "keyFacts": [
+    {
+      "fact": "Brookhollow library reopens Saturday",
+      "terms": [
+        "Brookhollow",
+        "Saturday"
+      ]
+    },
+    {
+      "fact": "$3.4 million renovation",
+      "terms": [
+        "3.4 million"
+      ]
+    }
+  ],
+  "referenceSummary": "The Brookhollow Public Library reopens on Saturday after an 18-month, $3.4 million renovation that added a children's wing and a recording studio."
+}

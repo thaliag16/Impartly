@@ -28,8 +28,12 @@ export default function Spike() {
   const busy = useRef(false);
   const airpodsOpensMic = useRef(false);
   const startedAt = useRef<number>(0);
+  const previewRef = useRef<HTMLAudioElement | null>(null);
+  const recordingRef = useRef<HTMLAudioElement | null>(null);
 
   const [status, setStatus] = useState<Status>("idle");
+  // Mirrors `busy` for rendering: true for the whole ask cycle, cues included.
+  const [asking, setAsking] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
   const [airpodsOption, setAirpodsOption] = useState(false);
@@ -88,9 +92,13 @@ export default function Spike() {
       const audio = audioRef.current;
       if (!audio || busy.current) return;
       busy.current = true;
+      setAsking(true);
 
-      // Rule: no briefing audio plays while the mic is open.
+      // Rule: no briefing or other audio plays while the mic is open. Only the start
+      // and end cues may; Previews and the recording player wait until it closes.
       audio.pause();
+      previewRef.current?.pause();
+      recordingRef.current?.pause();
       savedPosition.current = audio.currentTime;
       log(`ASK (${trigger}): paused at ${audio.currentTime.toFixed(1)}s, opening mic`);
 
@@ -100,6 +108,7 @@ export default function Spike() {
       } catch (error) {
         log(`MIC FAILED: ${(error as Error).name}: ${(error as Error).message}`);
         busy.current = false;
+        setAsking(false);
         setStatus("paused");
         return;
       }
@@ -137,6 +146,7 @@ export default function Spike() {
             })
             .finally(() => {
               busy.current = false;
+              setAsking(false);
             });
         });
       });
@@ -182,6 +192,12 @@ export default function Spike() {
   const start = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+    // Rule: no briefing audio plays while the mic is open. `busy` covers the whole
+    // ask cycle, including the moments before the Listening status shows.
+    if (busy.current) {
+      log("PLAY BLOCKED: the mic is open");
+      return;
+    }
     if (!audio.src) {
       audio.src = URL.createObjectURL(buildTestTrack());
       audio.loop = true;
@@ -203,6 +219,10 @@ export default function Spike() {
       });
       navigator.mediaSession.setActionHandler("play", () => {
         log("HEADPHONE or LOCK SCREEN: play");
+        if (busy.current) {
+          log("PLAY BLOCKED: the mic is open");
+          return;
+        }
         void audio.play();
       });
       navigator.mediaSession.setActionHandler("pause", () => {
@@ -364,9 +384,13 @@ export default function Spike() {
             </label>
             <button
               onClick={() => {
+                if (busy.current) return;
+                previewRef.current?.pause();
                 const preview = new Audio(URL.createObjectURL(buildCue(sound, true)));
+                previewRef.current = preview;
                 void preview.play();
               }}
+              disabled={asking}
               style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #1f1e1d", ...light }}
             >
               Preview
@@ -389,14 +413,15 @@ export default function Spike() {
         <span>Pausing from AirPods opens the mic</span>
       </label>
 
-      <audio ref={audioRef} playsInline preload="auto" />
-      <audio ref={startCueRef} playsInline preload="auto" />
-      <audio ref={endCueRef} playsInline preload="auto" />
+      <audio ref={audioRef} data-testid="briefing-audio" playsInline preload="auto" />
+      <audio ref={startCueRef} data-testid="cue-start" playsInline preload="auto" />
+      <audio ref={endCueRef} data-testid="cue-end" playsInline preload="auto" />
 
-      {recordingUrl && (
+      {/* Hidden while asking: its native controls cannot be disabled. */}
+      {recordingUrl && !asking && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Play my recording</div>
-          <audio src={recordingUrl} controls playsInline style={{ width: "100%" }} />
+          <audio ref={recordingRef} src={recordingUrl} controls playsInline style={{ width: "100%" }} />
         </div>
       )}
 

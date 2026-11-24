@@ -1,0 +1,29 @@
+{
+  "id": "05-sports-ridgeback-final",
+  "invented": true,
+  "_note": "Invented for tests. Not real mail; every name, number and address is made up.",
+  "length": "headline",
+  "newsletter": {
+    "from": "Full Time <scores@fulltime.example>",
+    "subject": "Ridgeback lift the cup",
+    "receivedAt": "2026-11-23T05:10:00Z",
+    "text": "FINAL: Ridgeback FC 3-1 Ostler Town.\nRidgeback won the Coastal Cup final in front of 31,000 fans, with two goals from striker Tomas Abend.\nIt is the club's first trophy in 17 years."
+  },
+  "keyFacts": [
+    {
+      "fact": "Ridgeback beat Ostler Town 3-1",
+      "terms": [
+        "Ridgeback",
+        "Ostler",
+        "3 1|3 to 1"
+      ]
+    },
+    {
+      "fact": "Coastal Cup final",
+      "terms": [
+        "Coastal Cup"
+      ]
+    }
+  ],
+  "referenceSummary": "Ridgeback FC beat Ostler Town 3 to 1 to win the Coastal Cup final, their first trophy in 17 years, with two goals from Tomas Abend."
+}

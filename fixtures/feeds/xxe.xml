@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!DOCTYPE rss [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+  <!ENTITY lol "lollollollollollollollollollol">
+  <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+]>
+<rss version="2.0">
+  <channel>
+    <title>Entity Trap</title>
+    <link>https://trap.example/</link>
+    <item>
+      <title>Trap &xxe; &lol2;</title>
+      <guid>trap-1</guid>
+      <pubDate>Mon, 23 Nov 2026 10:00:00 GMT</pubDate>
+      <description>Body &xxe; and &lol2; end.</description>
+    </item>
+  </channel>
+</rss>

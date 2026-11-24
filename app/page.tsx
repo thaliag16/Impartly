@@ -2,26 +2,30 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px" }}>
-      <h1 style={{ fontSize: 32, margin: "0 0 8px" }}>Impartly</h1>
-      <p style={{ fontSize: 17, lineHeight: 1.5, margin: "0 0 24px" }}>
-        Your newsletters, summarized and read to you. Nothing runs here yet
-        except the Phase 0 audio test.
-      </p>
-      <Link
-        href="/spike"
-        style={{
-          display: "inline-block",
-          padding: "14px 20px",
-          borderRadius: 12,
-          background: "#1f1e1d",
-          color: "#faf9f5",
-          textDecoration: "none",
-          fontWeight: 600,
-        }}
-      >
-        Open the audio test
+    <main className="px-page">
+      <header className="px-header">
+        <span className="px-wordmark">impartly</span>
+      </header>
+      <div className="px-field">
+        <h1 className="px-h1">Your newsletters, read to you.</h1>
+        <p className="px-body">
+          So far: pick the newsletters you want, set when your briefing is ready, connect Gmail (optional, read-only) and try the Phase 0 audio test.
+        </p>
+      </div>
+      <Link href="/newsletters" className="px-btn px-btn-primary">
+        Pick newsletters
       </Link>
+      <nav aria-label="More" className="px-row">
+        <Link href="/settings" className="px-btn">
+          Delivery time
+        </Link>
+        <Link href="/mail" className="px-btn">
+          Mail connection
+        </Link>
+        <Link href="/spike" className="px-btn">
+          Open the audio test
+        </Link>
+      </nav>
     </main>
   );
 }

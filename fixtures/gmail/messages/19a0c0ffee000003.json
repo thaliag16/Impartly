@@ -1,0 +1,203 @@
+{
+  "id": "19a0c0ffee000003",
+  "threadId": "19a0c0ffee000003",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_PROMOTIONS"
+  ],
+  "snippet": "Quarry Ledger Digest Granite prices rose 4% in October.",
+  "sizeEstimate": 2339,
+  "historyId": "900003",
+  "internalDate": "1795425300000",
+  "payload": {
+    "partId": "",
+    "mimeType": "multipart/mixed",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Mon, 23 Nov 2026 09:15:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 23 Nov 2026 09:15:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000003@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "Quarry Ledger <Digest@Quarry-Ledger.example>"
+      },
+      {
+        "name": "Subject",
+        "value": "October digest"
+      },
+      {
+        "name": "List-Unsubscribe",
+        "value": "<https://quarry-ledger.example/u/invented>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "multipart/mixed; boundary=\"invented-boundary-mixed\""
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0",
+        "mimeType": "multipart/related",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "multipart/related; boundary=\"invented-boundary-related\""
+          }
+        ],
+        "body": {
+          "size": 0
+        },
+        "parts": [
+          {
+            "partId": "0.0",
+            "mimeType": "multipart/alternative",
+            "filename": "",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "multipart/alternative; boundary=\"invented-boundary-alternative\""
+              }
+            ],
+            "body": {
+              "size": 0
+            },
+            "parts": [
+              {
+                "partId": "0.0.0",
+                "mimeType": "text/plain",
+                "filename": "",
+                "headers": [
+                  {
+                    "name": "Content-Type",
+                    "value": "text/plain; charset=\"UTF-8\""
+                  },
+                  {
+                    "name": "Content-Transfer-Encoding",
+                    "value": "base64"
+                  }
+                ],
+                "body": {
+                  "size": 55,
+                  "data": "UXVhcnJ5IExlZGdlciBEaWdlc3QKR3Jhbml0ZSBwcmljZXMgcm9zZSA0JSBpbiBPY3RvYmVyLg=="
+                }
+              },
+              {
+                "partId": "0.0.1",
+                "mimeType": "text/html",
+                "filename": "",
+                "headers": [
+                  {
+                    "name": "Content-Type",
+                    "value": "text/html; charset=\"UTF-8\""
+                  },
+                  {
+                    "name": "Content-Transfer-Encoding",
+                    "value": "base64"
+                  }
+                ],
+                "body": {
+                  "size": 257,
+                  "data": "PGh0bWw-PGJvZHk-CjxoMT5RdWFycnkgTGVkZ2VyIERpZ2VzdDwvaDE-CjxwPkdyYW5pdGUgcHJpY2VzIHJvc2UgNCUgaW4gT2N0b2Jlci4gVGhlIE1pbGxicm9vayBxdWFycnkgcmVvcGVucyBvbiBKYW51YXJ5IDkuPC9wPgo8cD48aW1nIHNyYz0iY2lkOmxvZ29AcXVhcnJ5LWxlZGdlci5leGFtcGxlIiBhbHQ9IlF1YXJyeSBMZWRnZXIgbG9nbyI-PC9wPgo8cD5WaWV3IHRoaXMgZW1haWwgaW4geW91ciBicm93c2VyLjwvcD4KPC9ib2R5PjwvaHRtbD4="
+                }
+              }
+            ]
+          },
+          {
+            "partId": "0.1",
+            "mimeType": "image/png",
+            "filename": "logo.png",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "image/png; name=\"logo.png\""
+              },
+              {
+                "name": "Content-Disposition",
+                "value": "inline; filename=\"logo.png\""
+              },
+              {
+                "name": "Content-Transfer-Encoding",
+                "value": "base64"
+              }
+            ],
+            "body": {
+              "attachmentId": "ANGjdJ-invented-logopng-3120",
+              "size": 3120
+            }
+          }
+        ]
+      },
+      {
+        "partId": "1",
+        "mimeType": "application/pdf",
+        "filename": "october-report.pdf",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/pdf; name=\"october-report.pdf\""
+          },
+          {
+            "name": "Content-Disposition",
+            "value": "attachment; filename=\"october-report.pdf\""
+          },
+          {
+            "name": "Content-Transfer-Encoding",
+            "value": "base64"
+          }
+        ],
+        "body": {
+          "attachmentId": "ANGjdJ-invented-octoberreportpdf-48211",
+          "size": 48211
+        }
+      },
+      {
+        "partId": "2",
+        "mimeType": "text/html",
+        "filename": "archive.html",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; name=\"archive.html\""
+          },
+          {
+            "name": "Content-Disposition",
+            "value": "attachment; filename=\"archive.html\""
+          },
+          {
+            "name": "Content-Transfer-Encoding",
+            "value": "base64"
+          }
+        ],
+        "body": {
+          "attachmentId": "ANGjdJ-invented-archivehtml-1900",
+          "size": 1900
+        }
+      }
+    ]
+  }
+}

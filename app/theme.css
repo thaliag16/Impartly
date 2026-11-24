@@ -1,0 +1,329 @@
+/*
+ * Impartly theme: the ONE place colour values live (GOAL.md section 1a).
+ * No hex, rgb() or hsl() values anywhere else in the UI: a test enforces it
+ * (lib/ui/theme.test.ts), and another checks the contrast of every text and
+ * background pair used here.
+ *
+ * Fonts are self-hosted from the @fontsource packages (imported in app/layout.tsx),
+ * so no request goes to Google at build or run time.
+ */
+
+:root {
+  /* Palette (GOAL.md 1a) */
+  --sand: #F4E8D3;        /* background */
+  --card: #FBF4E8;        /* cards, lists */
+  --dune: #D9C4A0;        /* dividers, unplayed waveform */
+  --mocha-ink: #3A3125;   /* text, borders, shadows */
+  --mocha-green: #4E5E3F; /* primary surfaces, listening screen */
+  --sage: #A9B78F;        /* decoration only, never text */
+  --watermelon: #EE6A82;  /* the one main action per screen */
+  --blush: #F8C4CB;       /* highlights */
+
+  /* Type */
+  --font-headline: "Pixelify Sans", ui-monospace, monospace;
+  --font-label: "Silkscreen", ui-monospace, monospace;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Shape */
+  --border-width: 3px;
+  --border: var(--border-width) solid var(--mocha-ink);
+  --shadow: 4px 4px 0 var(--mocha-ink);
+  --shadow-lg: 5px 5px 0 var(--mocha-ink);
+  --target: 44px;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--sand);
+  color: var(--mocha-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Square corners everywhere in the themed UI. */
+.px-page *,
+.px-page *::before,
+.px-page *::after {
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+.px-page {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  background: var(--sand);
+  color: var(--mocha-ink);
+}
+
+.px-page a {
+  color: var(--mocha-ink);
+}
+
+.px-page :focus-visible {
+  outline: 3px dashed var(--mocha-ink);
+  outline-offset: 3px;
+}
+
+.px-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Type ---------------------------------------------------------------------------- */
+
+.px-wordmark {
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  color: var(--mocha-ink);
+  font-family: var(--font-headline);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+}
+
+.px-h1 {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.px-h2 {
+  margin: 0;
+  font-family: var(--font-headline);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.px-label {
+  font-family: var(--font-label);
+  font-size: 12px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.px-muted {
+  color: var(--mocha-green);
+}
+
+.px-body {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ---- Surfaces ------------------------------------------------------------------------ */
+
+.px-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.px-card {
+  background: var(--card);
+  color: var(--mocha-ink);
+  border: var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.px-card-green {
+  background: var(--mocha-green);
+  color: var(--sand);
+  border: var(--border);
+  box-shadow: var(--shadow-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.px-card-green a {
+  color: var(--sand);
+}
+
+.px-alert {
+  background: var(--blush);
+  color: var(--mocha-ink);
+  border: var(--border);
+  padding: 12px 14px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.px-done {
+  background: var(--card);
+}
+
+.px-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--card);
+  color: var(--mocha-ink);
+  border: var(--border);
+}
+
+.px-list > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  flex-wrap: wrap;
+}
+
+.px-list > li + li {
+  border-top: 2px dashed var(--dune);
+}
+
+.px-grow {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.px-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ---- Controls ------------------------------------------------------------------------ */
+
+.px-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.px-input {
+  min-height: var(--target);
+  padding: 8px 12px;
+  font: 16px/1.4 var(--font-body);
+  background: var(--card);
+  color: var(--mocha-ink);
+  border: var(--border);
+  width: 100%;
+}
+
+.px-input::placeholder {
+  color: var(--mocha-green);
+  opacity: 1;
+}
+
+.px-btn {
+  min-height: var(--target);
+  min-width: var(--target);
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  text-transform: uppercase;
+  background: var(--card);
+  color: var(--mocha-ink);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.px-btn:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.px-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/*
+ * The one main action per screen. Mocha ink on watermelon is about 4.3:1, under 4.5:1,
+ * so the label is large bold text (WCAG large text, 3:1). Flagged to Thalia in PROGRESS.md.
+ */
+.px-btn-primary {
+  background: var(--watermelon);
+  color: var(--mocha-ink);
+  font-family: var(--font-headline);
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: none;
+  padding: 8px 18px;
+}
+
+.px-btn-quiet {
+  box-shadow: none;
+  background: transparent;
+  color: var(--mocha-ink);
+}
+
+/* On/off switch: a real button with role="switch" and aria-checked. */
+.px-switch {
+  min-height: var(--target);
+  min-width: 72px;
+  padding: 8px 10px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  border: var(--border);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--card);
+  color: var(--mocha-ink);
+}
+
+.px-switch[aria-checked="true"] {
+  background: var(--mocha-green);
+  color: var(--sand);
+}
+
+.px-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  shape-rendering: crispEdges;
+  fill: currentColor;
+}
+
+.px-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  background: var(--sage);
+  border: 2px solid var(--mocha-ink);
+}
+
+.px-dot-on {
+  background: var(--mocha-green);
+}

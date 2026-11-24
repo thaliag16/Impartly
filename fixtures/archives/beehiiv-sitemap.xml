@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://brief.example/</loc><lastmod>2026-11-20</lastmod></url>
+  <url><loc>https://brief.example/archive</loc><lastmod>2026-11-20</lastmod></url>
+  <url><loc>https://brief.example/subscribe</loc></url>
+  <url><loc>https://brief.example/about</loc></url>
+  <url><loc>https://brief.example/p/invented-round-up</loc><lastmod>2026-11-18T06:00:00Z</lastmod></url>
+  <url><loc>https://brief.example/p/invented-markets-slide</loc><lastmod>2026-11-20T06:00:00Z</lastmod></url>
+  <url><loc>https://brief.example/p/invented-fund-closes</loc><lastmod>2026-11-19T06:00:00Z</lastmod></url>
+  <url><loc>https://brief.example/p/invented-round-up/comments</loc></url>
+  <url><loc>https://other.example/p/off-site-post</loc><lastmod>2026-11-22T06:00:00Z</lastmod></url>
+</urlset>

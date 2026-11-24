@@ -1,0 +1,67 @@
+{
+  "id": "19a0c0ffee000007",
+  "threadId": "19a0c0ffee000007",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_UPDATES"
+  ],
+  "snippet": "Brightline Weekly, issue 481",
+  "sizeEstimate": 2727,
+  "historyId": "900007",
+  "internalDate": "1795240800000",
+  "payload": {
+    "partId": "",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Delivered-To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "Received",
+        "value": "from mx.invented.example by mx.inbox.example; Sat, 21 Nov 2026 06:00:00 GMT"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      },
+      {
+        "name": "Date",
+        "value": "Sat, 21 Nov 2026 06:00:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<19a0c0ffee000007@mailer.invented.example>"
+      },
+      {
+        "name": "To",
+        "value": "reader@inbox.example"
+      },
+      {
+        "name": "From",
+        "value": "Brightline Weekly <news@brightline-weekly.example>"
+      },
+      {
+        "name": "Subject",
+        "value": "Issue 481"
+      },
+      {
+        "name": "List-Unsubscribe",
+        "value": "<https://brightline-weekly.example/unsubscribe?u=invented>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"UTF-8\""
+      },
+      {
+        "name": "Content-Transfer-Encoding",
+        "value": "quoted-printable"
+      }
+    ],
+    "body": {
+      "size": 52,
+      "data": "PHA-QnJpZ2h0bGluZSBXZWVrbHksIGlzc3VlIDQ4MTogYW4gb2xkZXIgaXNzdWUuPC9wPg"
+    }
+  }
+}

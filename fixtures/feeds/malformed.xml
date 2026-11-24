@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Invented feed with the mistakes real feeds make: a bare ampersand, HTML entities in XML, no dates. -->
+<rss version="2.0">
+  <channel>
+    <title>Bits & Bobs Daily</title>
+    <link>https://bits.example/</link>
+    <item>
+      <title>Undated newest item&nbsp;here</title>
+      <link>https://bits.example/a</link>
+      <description>&lt;p&gt;Gorsehill Software shipped version 3 &amp;mdash; with 12 new features &amp; a faster sync engine. The invented company said 4,000 teams already use it, and that the update is free for every customer. It also cut its prices for schools by 30% and said a mobile app would follow early next year.&lt;/p&gt; &nbsp;</description>
+    </item>
+    <item>
+      <title>Undated older item</title>
+      <link>https://bits.example/b</link>
+      <description>An older invented note about Gorsehill Software.</description>
+    </item>
+  </channel>
+</rss>
