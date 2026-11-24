@@ -32,12 +32,20 @@ export interface DiscoveredFeed {
   title: string;
   homepageUrl: string | null;
   itemCount: number;
+  /** The newest dated item (ISO 8601), or null when no item carries a date. */
+  latestIssueAt: string | null;
   catalogId: string | null;
 }
 
 export type DiscoveryResult =
   | { ok: true; feed: DiscoveredFeed }
-  | { ok: false; reason: "not_found" | "invalid_input" | "no_feed"; lastError?: string };
+  | {
+      ok: false;
+      reason: "not_found" | "invalid_input" | "no_feed";
+      lastError?: string;
+      /** Why the first URL tried (the one the user named, or the catalog's) failed, if it did. */
+      startError?: string;
+    };
 
 /** Turns "news.example", "news.example/weekly" or a full URL into an https URL. */
 export function toUrl(input: string): URL | null {
@@ -85,6 +93,16 @@ function looksLikeFeed(contentType: string | undefined, text: string): boolean {
   return /^\s*(?:<\?xml[^>]*>\s*)?(?:<!--[\s\S]*?-->\s*)*<(?:rss|feed|rdf:RDF)[\s>]/i.test(text.slice(0, 2048));
 }
 
+/** The newest of the given ISO dates, or null. */
+export function latestDate(dates: readonly (string | undefined)[]): string | null {
+  let best: number | null = null;
+  for (const d of dates) {
+    const t = d ? Date.parse(d) : NaN;
+    if (Number.isFinite(t) && (best === null || t > best)) best = t;
+  }
+  return best === null ? null : new Date(best).toISOString();
+}
+
 export async function discoverFeed(
   input: string,
   fetcher: WebFetcher,
@@ -104,6 +122,7 @@ export async function discoverFeed(
   const tried = new Set<string>();
   let lastError: string | undefined;
   let pageSeen = false;
+  let startError: string | undefined;
 
   while (queue.length && tried.size < MAX_CANDIDATES) {
     const candidate = queue.shift()!;
@@ -114,12 +133,14 @@ export async function discoverFeed(
       res = await fetcher.get(candidate, { accept: `${FEED_ACCEPT}, text/html;q=0.5`, maxBytes: LIMITS.feedBytes });
     } catch (err) {
       lastError = err instanceof SourceFetchError ? err.code : "network_error";
+      if (tried.size === 1) startError = lastError;
       // A refusal for safety reasons stops discovery outright.
       if (lastError === "blocked_address" || lastError === "blocked_host") break;
       continue;
     }
     if (res.status !== 200) {
       lastError = `http_${res.status}`;
+      if (tried.size === 1) startError = lastError;
     } else if (looksLikeFeed(res.headers["content-type"], res.text)) {
       const parsed = parseFeed(res.text, res.url.toString());
       if (parsed) {
@@ -131,6 +152,7 @@ export async function discoverFeed(
             title: (parsed.title || entry?.name || res.url.hostname).slice(0, 200),
             homepageUrl: homepage ?? parsed.siteUrl ?? null,
             itemCount: parsed.items.length,
+            latestIssueAt: latestDate(parsed.items.map((i) => i.published)),
             catalogId: entry?.id ?? null,
           },
         };
@@ -152,5 +174,5 @@ export async function discoverFeed(
       else for (const p of COMMON_FEED_PATHS) queue.push(new URL(p, start.origin).toString());
     }
   }
-  return { ok: false, reason: "no_feed", lastError };
+  return { ok: false, reason: "no_feed", lastError, ...(startError ? { startError } : {}) };
 }

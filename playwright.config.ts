@@ -24,6 +24,9 @@ const APP_ENV = {
   GOOGLE_CLIENT_ID: "e2e-invented-client-id",
   GOOGLE_CLIENT_SECRET: "e2e-invented-client-secret",
   GOOGLE_REDIRECT_URI: `http://localhost:${PORT}/api/mail/gmail/callback`,
+  // The newsletter picker's discovery runs on canned responses (lib/feeds/e2e-fake-web.ts):
+  // no request leaves the machine.
+  IMPARTLY_E2E_FAKE_WEB: "1",
 };
 
 export default defineConfig({

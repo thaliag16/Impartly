@@ -30,3 +30,7 @@ their own licenses. Add a row here whenever one is added.
 | phonemizer | Text to phonemes for Kokoro; built on espeak-ng | Apache 2.0 (package); espeak-ng is GPL-3.0, to be confirmed before any release | https://www.npmjs.com/package/phonemizer |
 
 Not yet adopted, under evaluation: WhisperKit, FluidAudio, Parakeet TDT 0.6B v3 (CC-BY-4.0, attribution required).
+| Pixelify Sans (@fontsource/pixelify-sans 5.3.0) | Headline font, self-hosted (Latin subset) | SIL Open Font License 1.1 (OFL-1.1, the npm packages too) | https://github.com/eifetx/Pixelify-Sans, https://github.com/fontsource/font-files |
+| Silkscreen (@fontsource/silkscreen 5.3.0) | Label and time font, self-hosted (Latin subset) | SIL Open Font License 1.1 (OFL-1.1, the npm packages too) | https://github.com/googlefonts/silkscreen, https://github.com/fontsource/font-files |
+| DM Sans (@fontsource/dm-sans 5.3.0) | Body font, self-hosted (Latin subset) | SIL Open Font License 1.1 (OFL-1.1, the npm packages too) | https://github.com/googlefonts/dm-fonts, https://github.com/fontsource/font-files |
+| @axe-core/playwright 4.14.0 (with axe-core 4.14.1, already present through eslint-plugin-jsx-a11y) | Accessibility checks in the UI tests (dev only) | MPL-2.0 | https://github.com/dequelabs/axe-core-npm, https://github.com/dequelabs/axe-core |

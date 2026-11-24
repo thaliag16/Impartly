@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import rawCatalog from "../../../data/newsletter-catalog.json";
 import { createFakeWeb, feedFixture, rss } from "../../../tests/web/fake-web";
 import { catalogLookup, loadCatalog, searchCatalog, validateCatalog, type CatalogEntry } from "./catalog";
-import { COMMON_FEED_PATHS, discoverFeed, feedLinksInHtml, MAX_CANDIDATES, toUrl } from "./discover";
+import { COMMON_FEED_PATHS, discoverFeed, feedLinksInHtml, latestDate, MAX_CANDIDATES, toUrl } from "./discover";
 import { createWebFetcher } from "./fetcher";
 
 const html = (body: string) => ({ status: 200, headers: { "content-type": "text/html; charset=utf-8" }, body });
@@ -48,9 +48,16 @@ describe("discoverFeed", () => {
         title: "The Invented Ledger",
         homepageUrl: "https://ledger.example/",
         itemCount: 3,
+        latestIssueAt: "2026-11-23T12:00:00.000Z",
         catalogId: null,
       },
     });
+  });
+
+  it("latestDate picks the newest parseable date, or null", () => {
+    expect(latestDate(["2026-11-22T08:00:00Z", undefined, "2026-11-23T09:00:00Z", "not a date"])).toBe("2026-11-23T09:00:00.000Z");
+    expect(latestDate([undefined, "nope"])).toBeNull();
+    expect(latestDate([])).toBeNull();
   });
 
   it("a homepage: follows its <link rel=alternate> feed", async () => {

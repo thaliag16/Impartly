@@ -9,7 +9,7 @@ import { E2E_SECRET_MARKER, E2E_USER } from "./e2e-user.mjs";
 import { signIn } from "./sign-in";
 
 test("signed out, every page goes to /login and every API answers 401", async ({ page, request }) => {
-  for (const p of ["/", "/mail", "/spike", "/spike/voice"]) {
+  for (const p of ["/", "/mail", "/newsletters", "/spike", "/spike/voice"]) {
     await page.goto(p);
     await expect(page, p).toHaveURL(/\/login(\?|$)/);
     await expect(page.getByRole("heading", { name: "Sign in to Impartly" })).toBeVisible();

@@ -18,7 +18,9 @@ from the newsletters and the web, then picks the briefing back up where it left 
    Brew), and at the time you choose Impartly fetches new issues from their public sources:
    the official RSS or Atom feed, else the public web archive. It respects robots.txt and
    never gets around a paywall or a sign-in. Reading Gmail is an optional extra for
-   self-hosters, read-only.
+   self-hosters, read-only. The **Newsletters** page (`/newsletters`) is where you search the
+   catalog by name or paste a website or feed address, see what Impartly found (title, site,
+   last issue) before adding it, and switch each newsletter on or off or remove it.
 2. **Summarize.** Each issue becomes a short spoken-style summary. You choose the length
    (headline, brief or deep) and the topics to emphasize or skip.
 3. **Render.** Summaries become audio ahead of time, so listening works like a podcast,
@@ -94,6 +96,17 @@ The newsletter catalog (`data/newsletter-catalog.json`) is editable. `npm run ve
 checks every entry against the live sites (it needs internet access; CI runs it on pull
 requests that touch the catalog and writes a report to the job summary). Mark an entry
 `verified: true` only after that report shows a valid feed for it.
+
+The look (GOAL.md section 1a) lives in one file, `app/theme.css`: colour tokens, borders,
+shadows and the shared classes. No colour value may appear anywhere else in the UI
+(`lib/ui/theme.test.ts` checks this and the contrast of every text and background pair).
+Fonts are self-hosted from the `@fontsource` packages, so nothing is fetched from Google.
+
+The UI tests (`npm run test:e2e`) run the production build against a fake Supabase
+(`e2e/fake-auth-server.mjs`: Auth plus an in-memory REST stand-in) and, for the newsletter
+picker, a fake internet under the real fetcher, switched on by `IMPARTLY_E2E_FAKE_WEB=1`
+(`lib/feeds/e2e-fake-web.ts`; ignored on Vercel). Nothing leaves the machine. They include
+axe-core accessibility checks (WCAG 2.1 A/AA) on each picker screen.
 
 ## Credits
 

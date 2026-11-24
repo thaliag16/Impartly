@@ -1,5 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+// Self-hosted fonts (OFL-1.1), Latin subset only: no request to Google at build or run time.
+import "@fontsource/pixelify-sans/latin-400.css";
+import "@fontsource/pixelify-sans/latin-600.css";
+import "@fontsource/pixelify-sans/latin-700.css";
+import "@fontsource/silkscreen/latin-400.css";
+import "@fontsource/dm-sans/latin-400.css";
+import "@fontsource/dm-sans/latin-500.css";
+import "@fontsource/dm-sans/latin-700.css";
+// The one theme file: every colour token lives there (GOAL.md section 1a).
+import "./theme.css";
 
 export const metadata: Metadata = {
   title: "Impartly",
@@ -14,17 +24,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          background: "#faf9f5",
-          color: "#1f1e1d",
-        }}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

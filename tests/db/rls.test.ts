@@ -205,12 +205,12 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
     (
       await db.admin.query(
         `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
-         where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity
+         where n.nspname in ('public', 'private') and c.relkind in ('r', 'p') and not c.relrowsecurity
          order by 1`,
       )
     ).rows.map((r) => r.relname as string);
 
-  it("every table in public has row-level security enabled", async () => {
+  it("every table in public and private has row-level security enabled", async () => {
     expect(await tablesWithoutRls()).toEqual([]);
   });
 
