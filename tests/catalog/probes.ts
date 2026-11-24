@@ -12,7 +12,7 @@
 
 import { parse, type DefaultTreeAdapterTypes as T } from "parse5";
 import { SourceFetchError } from "../../lib/sources/types";
-import { isSignInUrl, issueLinksFromSitemap, normalizeUrl, pageTitle, parseSitemap, sameSite } from "../../lib/sources/web/archive";
+import { extractIssue, isSignInUrl, issueLinksFromSitemap, normalizeUrl, pageTitle, parseSitemap, sameSite } from "../../lib/sources/web/archive";
 import { archiveFromPage, createPacer, HTML_ACCEPT, webArchiveSource, type DiscoveredArchive, type Pacer } from "../../lib/sources/web/archive-source";
 import { discoverFeed, type DiscoveryResult } from "../../lib/sources/web/discover";
 import { createWebFetcher, LIMITS, type WebFetcher } from "../../lib/sources/web/fetcher";
@@ -21,6 +21,8 @@ import { FEED_ACCEPT } from "../../lib/sources/web/feed-source";
 import { BEEHIIV_ISSUE_PATH, detectPlatform } from "../../lib/sources/web/platforms";
 
 export const PROBE_LIMITS = Object.freeze({
+  /** Sitemap files read by a robots-sitemaps probe (an index and its children). */
+  maxSitemaps: 4,
   /** Pages fetched while following links from the seed pages (seeds not counted). */
   maxFollowedPages: 6,
   /** Candidate links listed per probe. */
@@ -33,7 +35,9 @@ const EDITION_HINT = /\b(?:daily|issues?|archives?|newsletters?|editions?|read (
 
 export interface ProbeTarget {
   entry: string;
-  kind: "discover" | "archive" | "sitemap" | "follow";
+  kind: "discover" | "archive" | "sitemap" | "follow" | "issue" | "robots-sitemaps";
+  /** robots-sitemaps only: the path prefix whose entries are counted (e.g. "/issues/"). */
+  pathPrefix?: string;
   url: string;
   /** follow only: pages to start from. */
   seeds?: string[];
@@ -45,6 +49,10 @@ export const PROBES: ProbeTarget[] = [
   { entry: "strictlyvc", kind: "archive", url: "https://newsletter.strictlyvc.com/archive" },
   { entry: "strictlyvc", kind: "sitemap", url: "https://newsletter.strictlyvc.com/sitemap.xml" },
   { entry: "morning-brew", kind: "follow", url: "https://www.morningbrew.com/subscribe", seeds: ["https://www.morningbrew.com/subscribe", "https://www.morningbrew.com/"] },
+  // Found by the follow probe in Catalog check run 45337117393 (the homepage's "Latest
+  // Newsletter" and "Newsletter" links): the daily email's web edition, one page per issue.
+  { entry: "morning-brew", kind: "issue", url: "https://www.morningbrew.com/issues/latest" },
+  { entry: "morning-brew", kind: "robots-sitemaps", url: "https://www.morningbrew.com/", pathPrefix: "/issues/" },
 ];
 
 /** Table-safe, short: no pipes or line breaks, at most 120 characters. */
@@ -74,6 +82,17 @@ async function sampleIssue(fetcher: WebFetcher, pacer: Pacer, a: DiscoveredArchi
     return item ? `sample issue read: "${cell(item.subject).slice(0, 60)}", ${item.bodyText.length} chars, partial ${item.partial ? "yes" : "no"}` : "sample issue: none read";
   } catch (e) {
     return `sample issue: ${code(e)}`;
+  }
+}
+
+function stripQuery(u: string): string {
+  try {
+    const url = new URL(u);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return u;
   }
 }
 
@@ -145,7 +164,71 @@ export async function runProbe(p: ProbeTarget): Promise<string[]> {
       const a = await archiveFromPage(fetcher, { url: page.url.toString(), html: page.text, title: pageTitle(page.text) }, pacer);
       if (!a) return rows(p.entry, "archive", p.url, "no issue links found", pageTitle(page.text), platform, []);
       const sample = await sampleIssue(fetcher, pacer, a);
-      return rows(p.entry, "archive", p.url, `archive (${a.method}, ${a.issueCount} issues, newest ${a.latestIssueAt ?? "undated"}); ${sample}`, a.title, platform, archiveItems(a));
+      return [
+        ...rows(p.entry, "archive", p.url, `archive (${a.method}, ${a.issueCount} issues, newest ${a.latestIssueAt ?? "undated"})`, a.title, platform, archiveItems(a)),
+        ...rows(p.entry, "sample issue", a.archiveUrl, sample, "", "", []),
+      ];
+    }
+    if (p.kind === "issue") {
+      const page = await getPage(fetcher, pacer, p.url);
+      if (page.status !== 200) return rows(p.entry, "issue page", p.url, `http_${page.status}`, "", "", []);
+      const issue = extractIssue(page.text, page.url.toString(), { maxChars: 20_000 });
+      const canonical = new URL(issue.canonicalUrl);
+      canonical.search = "";
+      return rows(
+        p.entry,
+        "issue page",
+        p.url,
+        `final URL ${cell(stripQuery(page.url.toString()))}; ${issue.text.length} chars, partial ${issue.partial ? "yes" : "no"}`,
+        issue.title,
+        `platform: ${detectPlatform(page.text, page.url.toString()) ?? "not detected"}`,
+        [{ title: issue.title, url: canonical.toString(), date: issue.published }],
+      );
+    }
+    if (p.kind === "robots-sitemaps") {
+      const info = (await fetcher.siteInfo?.(p.url)) ?? { crawlDelaySeconds: null, sitemaps: [] };
+      const out = rows(p.entry, "robots sitemaps", p.url, `${info.sitemaps.length} sitemaps advertised${info.crawlDelaySeconds !== null ? `, Crawl-delay ${info.crawlDelaySeconds}` : ""}`, "", "", []);
+      const prefix = p.pathPrefix ?? "/";
+      // Advertised sitemaps first, then the children of any index, until maxSitemaps.
+      const queue = info.sitemaps.map((u) => normalizeUrl(u)).filter((u): u is string => !!u && sameSite(u, p.url));
+      let read = 0;
+      while (queue.length && read < PROBE_LIMITS.maxSitemaps) {
+        const url = queue.shift()!;
+        read++;
+        try {
+          await pacer.wait(new URL(url).hostname, PROBE_LIMITS.intervalMs);
+          const res = await fetcher.get(url, { accept: "application/xml, text/xml;q=0.9, */*;q=0.1", maxBytes: LIMITS.feedBytes });
+          if (res.status !== 200) {
+            out.push(...rows(p.entry, "sitemap", url, `http_${res.status}`, "", "", []));
+            continue;
+          }
+          const sm = parseSitemap(res.text);
+          if (sm.kind === "index") {
+            const children = sm.entries.map((e) => normalizeUrl(e.url)).filter((u): u is string => !!u && sameSite(u, p.url));
+            // Children that look like they hold the prefix's pages go to the front.
+            const word = prefix.replace(/\W+/g, "");
+            children.sort((a, b) => Number(!!word && b.includes(word)) - Number(!!word && a.includes(word)));
+            queue.unshift(...children);
+            out.push(...rows(p.entry, "sitemap index", url, `${sm.entries.length} sitemaps`, "", "", children.map((c) => ({ title: "(sitemap)", url: c, date: null }))));
+            continue;
+          }
+          const matching = sm.entries
+            .filter((e) => {
+              try {
+                return new URL(e.url).pathname.startsWith(prefix);
+              } catch {
+                return false;
+              }
+            })
+            .sort((a, b) => (b.published ? Date.parse(b.published) : -Infinity) - (a.published ? Date.parse(a.published) : -Infinity));
+          out.push(
+            ...rows(p.entry, "sitemap", url, `${sm.kind ? `${sm.entries.length} URLs, ${matching.length} under ${prefix}` : "not a sitemap"}`, "", "", matching.map((e) => ({ title: e.title || "(no title in sitemap)", url: stripQuery(e.url), date: e.published }))),
+          );
+        } catch (e) {
+          out.push(...rows(p.entry, "sitemap", url, code(e), "", "", []));
+        }
+      }
+      return out;
     }
     if (p.kind === "sitemap") {
       await pacer.wait(new URL(p.url).hostname, PROBE_LIMITS.intervalMs);
