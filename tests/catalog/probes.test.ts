@@ -3,7 +3,7 @@
 // pages, other sites or query strings. Pages are invented (.example hosts).
 
 import { describe, expect, it } from "vitest";
-import { diagnoseIssue, editionLinks, PROBE_LIMITS, PROBES } from "./probes";
+import { diagnoseIssue, editionLinks, outlineIssue, PROBE_LIMITS, PROBES } from "./probes";
 
 describe("source probes", () => {
   it("probe URLs are clean https URLs with no query strings or fragments (no tracking parameters)", () => {
@@ -52,5 +52,20 @@ describe("diagnoseIssue", () => {
     expect(d).toMatch(/isAccessibleForFree false/);
     expect(d).toMatch(/paywall notice yes/);
     expect(d).not.toMatch(/invented/i);
+  });
+});
+
+describe("outlineIssue", () => {
+  it("gives paths and counts with at most a 40-character snippet", () => {
+    const long = "An invented sentence about invented funds and invented markets. ".repeat(10);
+    const page = `<html><body><div id="post" class="body x"><div><p>${long}</p></div><div><p>${long}</p></div></div></body></html>`;
+    const lines = outlineIssue(page);
+    const all = lines.join("\n");
+    expect(all).toMatch(/smallest block with 80% of <p> text: \[p text \d+ in 2; direct 0 in 0\] body > div#post\.body\.x/);
+    expect(all).toMatch(/blocks holding exactly one <p>: 2/);
+    expect(all).toMatch(/JSON-LD article nodes: 0/);
+    // The snippet is the only text printed, and it is short.
+    expect(all.split("invented sentence").length - 1).toBeLessThanOrEqual(1);
+    for (const l of lines) expect(l.length).toBeLessThan(400);
   });
 });

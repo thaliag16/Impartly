@@ -119,6 +119,79 @@ export function diagnoseIssue(html: string, pageUrl: string): string {
   ].join("; ");
 }
 
+/** tag#id.class1.class2 for one element, short (ids and classes cut to 24 characters). */
+function label(el: T.Element): string {
+  const id = el.attrs.find((a) => a.name === "id")?.value;
+  const cls = (el.attrs.find((a) => a.name === "class")?.value ?? "").split(/\s+/).filter(Boolean).slice(0, 2);
+  const ip = el.attrs.find((a) => a.name === "itemprop")?.value;
+  return `${el.tagName}${id ? `#${id.slice(0, 24)}` : ""}${cls.map((c) => `.${c.slice(0, 24)}`).join("")}${ip ? `[itemprop=${ip.slice(0, 16)}]` : ""}`;
+}
+
+function pathOf(el: T.Element, depth = 5): string {
+  const parts: string[] = [];
+  for (let n: T.ParentNode | null = el; n && "tagName" in n && parts.length < depth; n = (n as T.Element).parentNode) {
+    if ((n as T.Element).tagName === "html") break;
+    parts.unshift(label(n as T.Element));
+  }
+  return parts.join(" > ");
+}
+
+/**
+ * A compact structural outline of an issue page, for finding the article block: the
+ * chosen main block (path, paragraph counts), the smallest block holding most of the
+ * page's paragraph text, the top blocks by direct-<p> text, the JSON-LD article fields
+ * (types, articleBody length), and how many <p> sit directly in their parent. Counts,
+ * tag/id/class paths and a 40-character snippet only: no article text.
+ */
+export function outlineIssue(html: string): string[] {
+  const doc = parse(html.slice(0, LIMITS.pageBytes));
+  const skip = new Set(["script", "style", "template", "noscript", "head"]);
+  type Info = { el: T.Element; desc: number; direct: number; pCount: number; directP: number };
+  const infos: Info[] = [];
+  const pChars = (p: T.Element) => textOf(p).replace(/\s+/g, " ").trim().length;
+  const visit = (el: T.Element): { desc: number; pCount: number } => {
+    let desc = 0;
+    let pCount = 0;
+    let direct = 0;
+    let directP = 0;
+    for (const c of el.childNodes) {
+      if (!("tagName" in c) || skip.has(c.tagName)) continue;
+      if (c.tagName === "p") {
+        const n = pChars(c);
+        desc += n;
+        direct += n;
+        pCount++;
+        directP++;
+      } else {
+        const r = visit(c);
+        desc += r.desc;
+        pCount += r.pCount;
+      }
+    }
+    infos.push({ el, desc, direct, pCount, directP });
+    return { desc, pCount };
+  };
+  const html_ = doc.childNodes.find((c): c is T.Element => "tagName" in c && c.tagName === "html");
+  if (!html_) return ["no <html>"];
+  const total = visit(html_).desc;
+  const fmt = (i: Info) => `[p text ${i.desc} in ${i.pCount}; direct ${i.direct} in ${i.directP}] ${pathOf(i.el)}`;
+  const out: string[] = [`page <p> text ${total}`];
+  const main = mainContent(doc);
+  const mainInfo = infos.find((i) => i.el === main);
+  if (mainInfo) out.push(`chosen: ${fmt(mainInfo)}; starts "${cell(textOf(main!), 40)}"`);
+  const holder = infos.filter((i) => i.desc >= 0.8 * total && total > 0).sort((a, b) => a.desc - b.desc)[0];
+  if (holder) out.push(`smallest block with 80% of <p> text: ${fmt(holder)}`);
+  const top = [...infos].sort((a, b) => b.direct - a.direct).slice(0, 4);
+  top.forEach((i, n) => out.push(`top direct-<p> block ${n + 1}: ${fmt(i)}`));
+  const singles = infos.filter((i) => i.directP === 1 && i.pCount === 1).length;
+  out.push(`blocks holding exactly one <p>: ${singles}`);
+  const ld = jsonLdNodes(doc).filter((n) => /Article|Posting/.test(JSON.stringify(n["@type"] ?? "")));
+  out.push(`JSON-LD article nodes: ${ld.length}${ld.map((n) => ` [${cell(JSON.stringify(n["@type"]), 40)}; articleBody ${typeof n.articleBody === "string" ? `${n.articleBody.length} chars` : "absent"}; isAccessibleForFree ${JSON.stringify(n.isAccessibleForFree ?? null)}]`).join("")}`);
+  const counts = ["article", "main", "section"].map((t) => `${t} ${infos.filter((i) => i.el.tagName === t).length}`).join(", ");
+  out.push(`elements: ${counts}; itemprop=articleBody ${infos.filter((i) => (i.el.attrs.find((a) => a.name === "itemprop")?.value ?? "").includes("articleBody")).length}`);
+  return out;
+}
+
 function stripQuery(u: string): string {
   try {
     const url = new URL(u);
@@ -136,7 +209,10 @@ async function diagnoseRow(fetcher: WebFetcher, pacer: Pacer, entry: string, url
   try {
     const page = await getPage(fetcher, pacer, url);
     if (page.status !== 200) return rows(entry, "issue diagnostics", url, `http_${page.status}`, "", "", []);
-    return rows(entry, "issue diagnostics", url, diagnoseIssue(page.text, page.url.toString()), pageTitle(page.text), "", []);
+    return [
+      ...rows(entry, "issue diagnostics", url, diagnoseIssue(page.text, page.url.toString()), pageTitle(page.text), "", []),
+      ...outlineIssue(page.text).flatMap((line) => rows(entry, "issue outline", url, line, "", "", [])),
+    ];
   } catch (e) {
     return rows(entry, "issue diagnostics", url, code(e), "", "", []);
   }
