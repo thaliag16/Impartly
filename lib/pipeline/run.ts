@@ -26,6 +26,13 @@
 // Failure isolation: one newsletter failing to store or summarize is counted and skipped;
 // one source failing does not stop the others. Results hold counts and short error codes
 // only, never newsletter text, addresses, URLs or tokens, so they are safe to log.
+//
+// Scheduled runs (`schedule`, from lib/schedule): one delivery's pull may span several
+// function invocations. A source already pulled since the cycle started is skipped
+// ("done"); a web feed whose retry time lies ahead is skipped ("waiting"); work that
+// would not fit in the time left is not started ("not_started"), and the next tick picks
+// it up. Every web feed attempt is marked before it starts (beginFeedAttempt), so a
+// fetch cut off with the function backs off like a failure.
 
 import type { MailAdapter, NewsletterSource as SenderRule } from "../mail";
 import { mailSource } from "../sources/mail";
@@ -79,6 +86,18 @@ export interface PipelineDeps {
   summarizer: SummaryProvider;
   now?: () => Date;
   limits?: Partial<PipelineLimits>;
+  /** Set by the scheduled pull (lib/schedule). Absent: pull every active source now. */
+  schedule?: PipelineSchedule;
+}
+
+/** The kinds of work a scheduled run budgets time for. */
+export type ScheduledWork = "mail" | "feed" | "archive" | "summary";
+
+export interface PipelineSchedule {
+  /** Sources pulled at or after this belong to the current cycle and are skipped. */
+  cycleStart: Date;
+  /** True when there is time left to start (and finish) this kind of work. */
+  canStart(work: ScheduledWork): boolean;
 }
 
 export type SourceOutcome =
@@ -86,7 +105,10 @@ export type SourceOutcome =
   | "not_modified" // web feed answered 304: nothing new
   | "auth_error" // marked status = 'error'; the user must reconnect
   | "failed" // anything else; the window is not moved, so the next run retries
-  | "skipped"; // not active (mail error or revoked) or switched off (web feed)
+  | "skipped" // not active (mail error or revoked) or switched off (web feed)
+  | "done" // scheduled: already pulled in this cycle
+  | "waiting" // scheduled: a web feed whose retry time lies ahead
+  | "not_started"; // scheduled: not enough time left in this invocation
 
 export interface SourceResult {
   kind: "mail" | "web";
@@ -102,6 +124,8 @@ export interface SourceResult {
   newSenders: number;
   /** Items stored as partial (only a teaser or excerpt was public). */
   partial: number;
+  /** Web feeds that failed: when they may be retried. */
+  retryAt?: string;
   error?: string;
 }
 
@@ -144,6 +168,15 @@ export interface PipelineResult {
    * read with one row beyond maxSummariesPerRun, so this is a lower bound, not a total.
    */
   summaries: { created: number; failed: number; deferred: number };
+  /** Scheduled runs only: what is left for a later invocation. */
+  schedule?: {
+    /** Sources not started for lack of time. */
+    notStarted: number;
+    /** Summaries not started for lack of time. */
+    summariesNotStarted: number;
+    /** The earliest time a waiting or just-failed web feed may be retried (ISO), or null. */
+    retryAt: string | null;
+  };
 }
 
 /** A short, safe label for an error: a known code, or the error's name (never its message). */
@@ -195,6 +228,14 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
     summaries: { created: 0, failed: 0, deferred: 0 },
   };
   const windowMs = limits.firstPullWindowHours * 3600_000;
+  const schedule = deps.schedule;
+  let notStarted = 0;
+  let summariesNotStarted = 0;
+  let retryAt: number | null = null;
+  const noteRetry = (iso: string | null | undefined) => {
+    const t = iso ? Date.parse(iso) : NaN;
+    if (Number.isFinite(t) && (retryAt === null || t < retryAt)) retryAt = t;
+  };
 
   // Senders added during this run count as known for the next mail connection.
   const senderRules: SenderRule[] = state.sources.map((s) => ({ ...s }));
@@ -222,6 +263,23 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
     if (s.kind === "mail" ? s.connection.status !== "active" : !s.feed.included) continue;
 
     const last = s.kind === "mail" ? s.connection.lastSyncedAt : s.feed.lastFetchedAt;
+    if (schedule) {
+      if (last && Date.parse(last) >= schedule.cycleStart.getTime()) {
+        r.outcome = "done";
+        continue;
+      }
+      if (s.kind === "web" && s.feed.nextAttemptAt && Date.parse(s.feed.nextAttemptAt) > runStart.getTime()) {
+        r.outcome = "waiting";
+        noteRetry(s.feed.nextAttemptAt);
+        continue;
+      }
+      const work: ScheduledWork = s.kind === "mail" ? "mail" : s.feed.format === "archive" ? "archive" : "feed";
+      if (!schedule.canStart(work)) {
+        r.outcome = "not_started";
+        notStarted++;
+        continue;
+      }
+    }
     const since = !last
       ? new Date(runStart.getTime() - windowMs)
       : s.kind === "web"
@@ -229,7 +287,13 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
         : new Date(last);
 
     let pulled: PullResult;
+    // When this web feed may be retried if this attempt fails (set by beginFeedAttempt).
+    let retryIfFailed: string | undefined;
     try {
+      if (s.kind === "web") {
+        const next = await deps.store.beginFeedAttempt(userId, id, now());
+        if (next) retryIfFailed = next.toISOString();
+      }
       const source = sourceFor(s, { senderRules: () => senderRules });
       pulled = await source.pull({
         since,
@@ -248,6 +312,8 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
         }
       } else {
         r.outcome = "failed";
+        r.retryAt = retryIfFailed;
+        noteRetry(retryIfFailed);
         if (s.kind === "web") {
           try {
             await deps.store.markFeed(userId, id, { error: storableCode(r.error) });
@@ -318,6 +384,8 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
           lastModified: pulled.cache?.lastModified ?? null,
         });
       } else {
+        r.retryAt = retryIfFailed;
+        noteRetry(retryIfFailed);
         await deps.store.markFeed(userId, id, { error: "store_failed" });
       }
     } catch (err) {
@@ -329,7 +397,12 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
     if (r.kind === "mail") {
       result.connections.push({
         connectionId: r.sourceId,
-        outcome: r.outcome === "not_modified" ? "pulled" : r.outcome,
+        outcome:
+          r.outcome === "not_modified"
+            ? "pulled"
+            : r.outcome === "done" || r.outcome === "waiting" || r.outcome === "not_started"
+              ? "skipped"
+              : r.outcome,
         listed: r.listed,
         capped: r.capped,
         stored: r.stored,
@@ -367,6 +440,10 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
       result.summaries.deferred++;
       continue;
     }
+    if (schedule && !schedule.canStart("summary")) {
+      summariesNotStarted++;
+      continue;
+    }
     requested++;
     chars += text.length;
     const input: Newsletter = {
@@ -384,5 +461,12 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
     }
   }
 
+  if (schedule) {
+    result.schedule = {
+      notStarted,
+      summariesNotStarted,
+      retryAt: retryAt === null ? null : new Date(retryAt).toISOString(),
+    };
+  }
   return result;
 }

@@ -1,8 +1,10 @@
 // Which requests need a signed-in user. Everything does, except the sign-in page and the
-// sign-in endpoint themselves, and Next's own build assets. The proxy (proxy.ts) applies
-// this to every request; route handlers check the user again themselves.
+// sign-in endpoint themselves, Next's own build assets, and the scheduled pull route,
+// which Supabase Cron calls with a bearer CRON_SECRET instead of a session (checked in
+// constant time by the route itself, lib/routes/cron-pull.ts). The proxy (proxy.ts)
+// applies this to every request; route handlers check the user again themselves.
 
-const PUBLIC_PATHS = new Set(["/login", "/auth/sign-in"]);
+const PUBLIC_PATHS = new Set(["/login", "/auth/sign-in", "/api/cron/pull"]);
 
 export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;

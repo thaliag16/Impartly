@@ -60,6 +60,8 @@ export interface TestDatabase {
   /** Superuser connection to the fresh test database (bypasses RLS: use for setup). */
   admin: pg.Client;
   name: string;
+  /** Another superuser connection to the same test database (for concurrency tests). */
+  connect(): Promise<pg.Client>;
   close(): Promise<void>;
 }
 
@@ -94,11 +96,21 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   }
   await root.end(); // releases the lock
   const client = admin;
+  const extra: pg.Client[] = [];
 
   return {
     admin: client,
     name,
+    async connect() {
+      const url = new URL(base.toString());
+      url.pathname = `/${name}`;
+      const c = new pg.Client({ connectionString: url.toString() });
+      await c.connect();
+      extra.push(c);
+      return c;
+    },
     async close() {
+      await Promise.all(extra.map((c) => c.end().catch(() => undefined)));
       await client.end();
       await dropDatabase(base, name);
     },

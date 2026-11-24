@@ -12,8 +12,15 @@ export function missingSummaryEnv(env: Env = process.env): string[] {
   return REQUIRED_SUMMARY_ENV.filter((name) => !env[name]?.trim());
 }
 
-/** The configured summarizer, from SUMMARY_BASE_URL, SUMMARY_MODEL and SUMMARY_API_KEY. */
-export function summarizerFromEnv(env: Env = process.env, fetchImpl?: typeof fetch): SummaryProvider {
+/**
+ * The configured summarizer, from SUMMARY_BASE_URL, SUMMARY_MODEL and SUMMARY_API_KEY.
+ * `timeoutMs` caps each call (the scheduled pull passes a shorter one to fit its budget).
+ */
+export function summarizerFromEnv(
+  env: Env = process.env,
+  fetchImpl?: typeof fetch,
+  options: { timeoutMs?: number } = {},
+): SummaryProvider {
   const missing = missingSummaryEnv(env);
   if (missing.length) throw new Error(`Summarizer not configured: set ${missing.join(", ")}`);
   return createOpenAICompatibleProvider({
@@ -21,5 +28,6 @@ export function summarizerFromEnv(env: Env = process.env, fetchImpl?: typeof fet
     model: env.SUMMARY_MODEL!.trim(),
     apiKey: env.SUMMARY_API_KEY?.trim() || undefined,
     fetch: fetchImpl,
+    timeoutMs: options.timeoutMs,
   });
 }

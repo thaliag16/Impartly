@@ -76,6 +76,31 @@ Copy `.env.example` to `.env.local` and fill it in. Your `.env.local` stays on y
 it is listed in `.gitignore` and must never be committed. A step-by-step setup guide arrives
 with Phase 5.
 
+### The scheduled pull
+
+Supabase Cron calls `POST /api/cron/pull` on your deployment every 5 minutes (migration
+`supabase/migrations/20261123180000_scheduled_pull.sql`). Each call pulls and summarizes for
+the users whose briefing is coming due, starting 30 minutes before their delivery time
+(`PULL_LEAD_MINUTES`, 0 to 360) so it is ready on time. A call stops before Vercel's
+60-second limit and the next one carries on where it stopped. Until both Vault secrets
+below exist, the job runs but calls nothing.
+
+The route accepts only `Authorization: Bearer <CRON_SECRET>`, so the same secret goes in two
+places. Never commit it or paste it into an issue.
+
+1. Make a random secret of at least 32 characters, for example with `openssl rand -base64 48`.
+2. Vercel: Project > Settings > Environment Variables, add `CRON_SECRET` for Production, then
+   redeploy.
+3. Supabase: apply every migration in `supabase/migrations/`. Then add two Vault secrets
+   (Dashboard > Integrations > Vault, or `vault.create_secret` in the SQL editor):
+   `impartly_cron_secret` with the same value as `CRON_SECRET`, and `impartly_pull_url`
+   with `https://<your production domain>/api/cron/pull`. Use the production domain:
+   preview deployments are usually behind Vercel's deployment protection.
+4. To rotate, change both places (in Supabase, `vault.update_secret`).
+
+To check it works: Supabase > Integrations > Cron shows the job's runs, and the route
+answers each call with counts only (users claimed, completed, partial, failed).
+
 ## Principles
 
 - **Read-only inbox.** Impartly never gets permission to send, delete or change mail.

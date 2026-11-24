@@ -27,6 +27,8 @@ const APP_ENV = {
   // The newsletter picker's discovery runs on canned responses (lib/feeds/e2e-fake-web.ts):
   // no request leaves the machine.
   IMPARTLY_E2E_FAKE_WEB: "1",
+  // The scheduled pull route's bearer secret (invented; e2e/cron-pull.e2e.ts).
+  CRON_SECRET: "e2e-invented-cron-secret-0123456789abcdef",
 };
 
 export default defineConfig({

@@ -13,6 +13,8 @@ export type {
   SourceResult,
   SourceOutcome,
   StoredSource,
+  PipelineSchedule,
+  ScheduledWork,
 } from "./run";
 export { createRpcPipelineStore } from "./store";
 export type {

@@ -123,3 +123,56 @@ $$;
 revoke all on schema vault from public, anon, authenticated, service_role;
 revoke all on all tables in schema vault from public, anon, authenticated, service_role;
 revoke all on all functions in schema vault from public, anon, authenticated, service_role;
+
+-- Supabase Cron (pg_cron) and pg_net, minimal stand-ins. A plain Postgres has neither
+-- extension, so the scheduled-pull migration finds these schemas and skips CREATE
+-- EXTENSION. cron.schedule keeps jobs in cron.job (a job of the same name is replaced,
+-- as pg_cron does); nothing runs them. net.http_post only records the request in
+-- net.http_request_queue (the table real pg_net queues requests in) and sends nothing.
+create schema if not exists cron;
+
+create table if not exists cron.job (
+  jobid bigserial primary key,
+  jobname text unique,
+  schedule text not null,
+  command text not null,
+  username text not null default current_user,
+  active boolean not null default true
+);
+
+create or replace function cron.schedule(job_name text, schedule text, command text) returns bigint
+language sql
+as $$
+  insert into cron.job (jobname, schedule, command) values (job_name, schedule, command)
+  on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command
+  returning jobid
+$$;
+
+create schema if not exists net;
+
+create table if not exists net.http_request_queue (
+  id bigserial primary key,
+  method text not null,
+  url text not null,
+  headers jsonb not null,
+  body jsonb,
+  timeout_milliseconds integer not null
+);
+
+create or replace function net.http_post(
+  url text,
+  body jsonb default '{}'::jsonb,
+  params jsonb default '{}'::jsonb,
+  headers jsonb default '{"Content-Type": "application/json"}'::jsonb,
+  timeout_milliseconds integer default 2000
+) returns bigint
+language sql
+as $$
+  insert into net.http_request_queue (method, url, headers, body, timeout_milliseconds)
+  values ('POST', url, headers, body, timeout_milliseconds)
+  returning id
+$$;
+
+revoke all on schema cron, net from public, anon, authenticated, service_role;
+revoke all on all tables in schema cron, net from public, anon, authenticated, service_role;
+revoke all on all functions in schema cron, net from public, anon, authenticated, service_role;

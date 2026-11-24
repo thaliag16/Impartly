@@ -24,6 +24,8 @@ their own licenses. Add a row here whenever one is added.
 | @supabase/ssr 0.12.7 (with cookie 1.1.1) | Supabase sessions in httpOnly cookies for Next.js (proxy, route handlers, server components) | MIT | https://github.com/supabase/ssr, https://github.com/jshttp/cookie |
 | server-only 0.0.1 | Marks modules that must never be bundled for the browser (the service-role client and what imports it) | MIT | https://www.npmjs.com/package/server-only |
 | PostgreSQL | Throwaway local database for the RLS tests (the server preinstalled on the CI runner, or your own); not bundled | PostgreSQL License | https://www.postgresql.org |
+| pg_cron (Postgres extension, provided by Supabase as Supabase Cron) | Runs the scheduled pull's 5-minute tick (`supabase/migrations/20261123180000_scheduled_pull.sql`); not bundled, enabled by the migration | PostgreSQL License | https://github.com/citusdata/pg_cron |
+| pg_net (Postgres extension, provided by Supabase) | The tick's HTTP POST to the pull route; not bundled, enabled by the migration | Apache 2.0 | https://github.com/supabase/pg_net |
 | kokoro-js | Runs Kokoro in Node and the browser | Apache 2.0 | https://www.npmjs.com/package/kokoro-js |
 | Transformers.js (@huggingface/transformers 3.8.1, a direct dependency since run 6) | Model loading for kokoro-js and Moonshine | Apache 2.0 | https://github.com/huggingface/transformers.js |
 | ONNX Runtime | Runs ONNX models on CPU | MIT | https://github.com/microsoft/onnxruntime |

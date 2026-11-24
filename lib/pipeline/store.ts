@@ -30,6 +30,10 @@ export interface PipelineFeed {
   lastModified: string | null;
   /** ISO time of the last successful fetch, or null before the first. */
   lastFetchedAt: string | null;
+  /** Consecutive failed (or cut-off) attempts; 0 after a success. */
+  failureCount?: number;
+  /** ISO time before which a scheduled pull does not retry this feed, or null. */
+  nextAttemptAt?: string | null;
 }
 
 export interface PipelineState {
@@ -92,6 +96,12 @@ export interface PipelineStore {
     update: { status?: "active" | "error"; syncedAt?: Date },
   ): Promise<void>;
   saveFeedItem(userId: string, row: FeedItemRow): Promise<{ id: string; inserted: boolean }>;
+  /**
+   * Called just before a feed is fetched. Counts the attempt as a failure until markFeed
+   * records a success, so a fetch cut off with the function still backs off. Returns when
+   * the feed may next be retried if this attempt fails.
+   */
+  beginFeedAttempt(userId: string, feedId: string, at: Date): Promise<Date | null>;
   markFeed(userId: string, feedId: string, mark: FeedMark): Promise<void>;
 }
 
@@ -133,6 +143,8 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
           lastFetchedAt: str(f.last_fetched_at),
           format: f.feed_format === "archive" ? ("archive" as const) : f.feed_format === "atom" ? ("atom" as const) : ("rss" as const),
           knownUrls: Array.isArray(f.known_urls) ? (f.known_urls as unknown[]).filter((u): u is string => typeof u === "string") : [],
+          failureCount: typeof f.failure_count === "number" ? f.failure_count : 0,
+          nextAttemptAt: str(f.next_attempt_at),
         })),
       };
     },
@@ -203,6 +215,12 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
       })) as { id?: unknown; inserted?: unknown } | null;
       if (!raw || typeof raw.id !== "string") throw new Error("pipeline_save_feed_item returned no id");
       return { id: raw.id, inserted: raw.inserted === true };
+    },
+    async beginFeedAttempt(userId, feedId, at) {
+      const raw = await rpc("pipeline_begin_feed", { p_user_id: userId, p_feed_id: feedId, p_at: at.toISOString() });
+      // supabase-js returns timestamptz as a string; node-postgres (tests) as a Date.
+      const t = typeof raw === "string" ? Date.parse(raw) : raw instanceof Date ? raw.getTime() : NaN;
+      return Number.isFinite(t) ? new Date(t) : null;
     },
     async markFeed(userId, feedId, mark) {
       await rpc("pipeline_mark_feed", {
