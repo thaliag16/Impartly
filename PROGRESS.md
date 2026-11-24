@@ -41,7 +41,7 @@ Thalia checks
 **As of run 14, every Phase 1 agent-checkable item passes in CI except the two that need a real summary model:** the summary eval at ≥ 90% and the prompt-injection fixtures (both wait on SUMMARY_API_KEY). Nothing else on the agent side blocks Phase 1. Thalia's check, "a week of real summaries I trust", needs the setup below.
 
 ### Thalia's setup checklist (in order; nothing here has been created or changed by an agent)
-1. **Merge the stacked PRs in order**, #9 through #29 (or deploy the top branch, `agent/phase1-delivery-settings`, to try it first).
+1. **Merge the stacked PRs in order**, #9 through #30 (or deploy the top branch, `agent/phase2-briefing-render`, to try it first). Apply the new migration `20261124150000_listen_settings.sql` with the rest.
 2. **Create a Supabase project** (free plan). Apply every file in `supabase/migrations/` in name order: `supabase link` then `supabase db push`, or paste each file into the SQL editor in order. The last one enables pg_cron and pg_net and schedules the job. Until step 7 is done the job only logs a notice.
 3. **Supabase Auth:** switch off "Allow new users to sign up" (Authentication > Sign In / Providers). Then create your own user (Authentication > Users > Add user, email and password).
 4. **Note three Supabase values** (Project Settings > API): the project URL, the publishable key and the secret key. The secret key goes only into Vercel.
@@ -139,6 +139,37 @@ Your iPhone check, "Tap-to-ask plays and records cleanly on a real iPhone":
 - [Done in run 3: `.github/workflows/checks.yml`, PR #12.] [Provisionally decided by session lead, Thalia to confirm on review: yes, in a later pass.] There is no CI workflow yet (`.github/` does not exist), but GOAL.md says items pass "in CI". A GitHub Actions workflow is free for a public repo. OK to add one in a later pass?
 
 ## Log
+### 2026-11-24 run 19
+- Phase transition first, on Thalia's instruction ("Start!", relayed by the session lead, 2026-11-24). CLAUDE.md "Current phase" now reads Phase 2: listen, and notes that Phase 0's and Phase 1's Thalia items are paused, not passed. New section "Paused, awaiting Thalia (Phase 1)": the real summary eval, the injection fixtures, the week of real summaries, and Term Sheet. Phase 2 tracking and an ordered plan are at the top.
+- Measured first (new branch `agent/phase2-briefing-render` from `agent/phase1-delivery-settings`, before any change): 6/7 checks passing locally (unit and database tests 899 on a throwaway PostgreSQL 16, typecheck, lint, secret scan 0); `eval:summaries` still has no real model score.
+- **Picked, by GOAL.md priority:** the security rule first, then the first slice of the three Phase 2 items. The security rule: SECURITY.md says models come at a pinned revision and are verified by hash, but the browser worker and the speech-test route downloaded Kokoro and its voices from `main`, unchecked (open since run 5). The rendering path of Phase 2 depends on it.
+- **Pinned runtime downloads** (`lib/speech/pinned-files.ts`, `lib/speech/pins.ts`):
+  - Pinned files: the 4 Kokoro files in `scripts/model-pins.json`, plus `voices/af_heart.bin` and `voices/bm_daniel.bin`. The voice hashes are those of the kokoro-js 1.2.1 npm package's files, which package-lock.json pins by integrity. `pins.test.ts` re-hashes them from `node_modules` on every run.
+  - Every file is fetched from the pinned commit, never `main`. A redirect must stay on Hugging Face's hosts. SHA-256 is computed with SubtleCrypto (browser and Node), and a mismatch fails the load. Verified bytes are kept in Cache Storage (`impartly-models-v1`) and checked again before each use. Concurrent requests share one download.
+  - Transformers.js: `restrictToPinnedModels(env, ...)` turns off remote downloads and the library's own browser and file caches. It points Transformers.js at a custom cache that answers only pinned files, so an unpinned file is treated as absent (optional) or fails the load (required), and is never fetched.
+  - kokoro-js fetches voices with the global `fetch`. In the worker, `fetch` is replaced by `pinnedFetch`, which serves pinned files verified and refuses any other Hugging Face URL. kokoro-js's own voice cache is cleared at load, so nothing unverified from an earlier visit is used.
+  - The worker's "Graphics chip" option (fp32 `onnx/model.onnx`, not pinned) now stops with a clear error (see Questions). The speech-test route uses the same loader with an in-memory store, and its TODO is gone.
+  - Not covered: Transformers.js loads ONNX Runtime's WASM files from the jsDelivr CDN at a version-pinned URL, but without a hash check. That is plan item 3.
+- **Briefing script** (`lib/briefing/script.ts`, pure): items (issue id, feed id, newsletter name, subject, summary, partial, received time) become sentences, each tagged with its kind, section and story, plus sections that know their first sentence. The ordering, the spoken words and the cleaning rules are in Questions. Every chunk stays at or under 300 characters (Kokoro's limit), and no word of a summary is dropped.
+- **Render ahead** (`lib/briefing/render-ahead.ts`): renders, in play order, only the sentences missing from the store. Keys are `kokoro-v1/<voice>/<speed>/<SHA-256 of text>`, so no sentence text appears in a key. The store is Cache Storage (`cacheApiClipStore`, raw float32 plus sample rate) or memory. The renderer is injected. Voice and speed are checked; it supports abort and progress. It returns a render report (sentences rendered and cached, characters, device seconds, audio seconds, real-time factor) for the cost log.
+- **Order setting** (migration `20261124150000_listen_settings.sql`): `user_settings.feed_order uuid[]`, default empty, at most 200, no nulls. It covers the authenticated role by a column grant under the existing update-own policy; no new table and no new policy. `lib/briefing/settings.ts` checks:
+  - the voice is one of the two;
+  - the speed is 0.50 to 2.00 in 0.05 steps;
+  - the order is a list of the user's own feed ids (read under RLS), with no duplicates.
+  It saves with update, else insert. Changing voice, speed or order leaves the delivery schedule alone.
+- **Tests first:**
+  - `lib/speech/pinned-files.test.ts` (13): pinned revision only, hash mismatch refused and not stored, HTTP error, redirect off Hugging Face refused (`*.hf.co` allowed), stored copy re-verified and replaced when corrupted, one download for concurrent requests, lookup by URL and local path at `main` or the pinned commit only, `..` refused, unpinned Hugging Face URLs refused with no request, Transformers.js settings, Cache Storage round trip. Mutations: dropping the hash check failed 2 tests; trusting the stored copy failed 1.
+  - `lib/speech/pins.test.ts` (3).
+  - `lib/briefing/script.test.ts` (10) and `render-ahead.test.ts` (8).
+  - `lib/briefing/settings.test.ts` (18): parse cases, plus load and save against a small fake client.
+  - `tests/db/listen-settings.test.ts` (9, real Postgres): defaults, save and persist as the user, no change to another user's row, own-row reads only, anon refused, more than 200 ids and null ids refused, schedule untouched, a removed feed's id left harmless. Without the migration, 8 of 9 failed for the right reason; the schedule test passed as a guard. `tests/db/rls.test.ts` now reads `feed_order` in the second-user checks.
+  - `tests/speech/pinned-download.models.ts` (2, CI model job, real Hugging Face): both voices at the pinned commit match the npm hashes, and kokoro-js loads and speaks with every file coming through the pinned loader, with no request for an unpinned URL.
+- New packages: none. Paid dependency: none. No secret, no new env name. One migration (one column, one grant).
+- **Checks before → after:** 6/7 → 6/7 locally. Unit and database tests 899 → 960. UI tests 27/27. Build, typecheck, lint and secret scan pass.
+- **CI result** (no fix attempts needed): on commit dd22a0a, Checks runs 45425287579 (push) and 45425341513 (pull_request) are green. That covers build, typecheck, lint, unit and database tests (45 files), UI tests 27/27, secret scan, and the speech model tests, including the new pinned-download test against the real Hugging Face. **So Hugging Face serves both voice files at the pinned commit with the npm package's hashes, and kokoro-js loads through the pinned loader.** The summary-eval job skipped as designed.
+- PR: #30 (base `agent/phase1-delivery-settings`)
+- Stop condition: none hit (no check failed, no paid service, no secret). Product calls were set provisionally and are listed in Questions.
+- Next: Phase 2 plan item 2, the briefing loader.
 ### 2026-11-24 run 18
 - Measured first (on the new branch `agent/phase1-delivery-settings`, before any change): 6/7 checks passing locally (unit and database tests 873 on a throwaway PostgreSQL 16, typecheck, lint, secret scan 0); `eval:summaries` still has no real model score.
 - Picked: the delivery time and timezone screen (remaining-list item 4), approved by Thalia on 2026-11-24 ("Start!", relayed by the session lead). Only these two fields: voice, speed and order are Phase 2.
