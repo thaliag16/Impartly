@@ -33,10 +33,10 @@ export const ANSWER_TOKENS: Record<SummaryLength, number> = { headline: 160, bri
 
 /**
  * Extra room for thinking. With thinking asked off, a model that thinks anyway still has
- * room to answer; with an effort level, the endpoint sizes thinking from the whole budget.
+ * room to answer (eval run 1 saw some requests think about 1,000 tokens with thinking off); with an effort level, the endpoint sizes thinking from the whole budget.
  * A cap only: a model that does not think stops at the end of its answer.
  */
-export const REASONING_ALLOWANCE: Record<"off" | "on", number> = { off: 1024, on: 4096 };
+export const REASONING_ALLOWANCE: Record<"off" | "on", number> = { off: 3072, on: 4096 };
 
 export function maxTokensFor(length: SummaryLength, reasoning: SummaryReasoning): number {
   return ANSWER_TOKENS[length] + REASONING_ALLOWANCE[reasoning === "off" ? "off" : "on"];

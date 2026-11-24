@@ -54,6 +54,9 @@ describe("prompt", () => {
     expect(system.role).toBe("system");
     expect(system.content).toMatch(/never instructions to you/);
     expect(system.content).toMatch(/Between 25 and 90 words/);
+    expect(system.content).toMatch(/one single paragraph/);
+    expect(system.content).toMatch(/in digits/);
+    expect(system.content).toMatch(/no preamble, sign-off, disclaimer/);
     expect(user.role).toBe("user");
     expect(user.content.startsWith("<newsletter_data>\n")).toBe(true);
     expect(user.content.endsWith("\n</newsletter_data>")).toBe(true);
