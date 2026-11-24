@@ -7,6 +7,7 @@ export type PickerError =
   | "invalid_input"
   | "not_found"
   | "unavailable"
+  | "not_on_web"
   | "no_feed"
   | "robots"
   | "refused"
@@ -36,8 +37,10 @@ export interface FeedPreview {
   note?: string;
 }
 
-export type PreviewOutcome = { ok: true; preview: FeedPreview } | { ok: false; error: PickerError };
-export type AddOutcome = { ok: true; feedId: string; title: string; inserted: boolean } | { ok: false; error: PickerError };
+/** A failure; `detail` is a catalog entry's own picker note, shown instead of the generic message. */
+export type PickerFailure = { ok: false; error: PickerError; detail?: string };
+export type PreviewOutcome = { ok: true; preview: FeedPreview } | PickerFailure;
+export type AddOutcome = { ok: true; feedId: string; title: string; inserted: boolean } | PickerFailure;
 export type ChangeOutcome = { ok: true } | { ok: false; error: PickerError | "not_yours" };
 
 /** One of the user's feeds, as the page lists it (read under RLS). */
@@ -57,8 +60,9 @@ export interface CatalogPick {
   name: string;
   site: string;
   aliases: string[];
-  /** Impartly cannot read this one (its site refuses automated readers). */
+  /** Impartly cannot read this one; unavailableLabel says why, in a few words. */
   unavailable?: true;
+  unavailableLabel?: string;
 }
 
 export const ERROR_MESSAGES: Record<PickerError | "not_yours", string> = {
@@ -68,6 +72,7 @@ export const ERROR_MESSAGES: Record<PickerError | "not_yours", string> = {
     "That name is not in Impartly's catalog yet. Paste the newsletter's website or feed address instead.",
   unavailable:
     "That newsletter's site refuses automated readers, so Impartly can't fetch it. Impartly does not get around that.",
+  not_on_web: "Impartly can't read that newsletter from the web yet. Forwarding your newsletters to Impartly is coming later.",
   no_feed: "No public feed was found on that site, and no public list of past issues either.",
   robots: "That site asks automated readers not to fetch it (robots.txt), so Impartly won't.",
   refused: "That site refused the request. Impartly does not get around sign-ins or paywalls.",

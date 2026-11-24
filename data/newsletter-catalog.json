@@ -1,5 +1,5 @@
 {
-  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. An entry is verified: true only when a live `npm run verify:catalog` run (the \"Catalog check\" GitHub Actions workflow) showed its feed or public archive working, and verifiedAt (UTC date) and verifiedRunId record that run; everything else is verified: false. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage. archiveUrl (optional): the public archive page to read when no feed is found. pickerNote (optional): a short line the picker shows with the preview. unavailable (optional): Impartly cannot read this newsletter (refuses_automated_access: the site refuses automated readers), so the picker explains instead of fetching. note: for maintainers.",
+  "about": "Popular newsletters with their homepage and, where it can be justified, their official feed URL. Edit freely. An entry is verified: true only when a live `npm run verify:catalog` run (the \"Catalog check\" GitHub Actions workflow) showed its feed or public archive working, and verifiedAt (UTC date) and verifiedRunId record that run; everything else is verified: false. Discovery validates every feed live before storing it, so a wrong entry fails safely. feedUrl null means: discover from the homepage. archiveUrl (optional): the public archive page to read when no feed is found. pickerNote (optional): a short line the picker shows with the preview. unavailable (optional): Impartly cannot read this newsletter (refuses_automated_access: the site refuses automated readers; not_on_web: no public source of its own issues that Impartly can read), so the picker explains instead of fetching, with pickerNote if set. note: for maintainers.",
   "entries": [
     {
       "id": "techcrunch",
@@ -15,10 +15,13 @@
       "id": "strictlyvc",
       "name": "StrictlyVC",
       "aliases": ["Strictly VC"],
-      "homepageUrl": "https://strictlyvc.com/",
+      "homepageUrl": "https://newsletter.strictlyvc.com/",
       "feedUrl": null,
-      "verified": false,
-      "note": "Unverified. Discovery finds https://strictlyvc.com/feed/ (feed title \"StrictlyVC, LLC\", daily issues named by date), but in the live check its first 3 items were issues titled with 2019 dates (\"November 1, 2019\" and earlier), so the feed looks stale and is not listed here. Discovery still reads the homepage; the picker preview shows the last issue date."
+      "archiveUrl": "https://newsletter.strictlyvc.com/archive",
+      "verified": true,
+      "verifiedAt": "2026-11-24",
+      "verifiedRunId": 45337784590,
+      "note": "beehiiv publication (source given by Thalia, run 16). Live checks (runs 45337117393 and 45337784590) found no feed; /archive is read through the beehiiv sitemap (/sitemap.xml, 100 /p/ issues), newest \"Wall Street's AI Rout Erases More Than $4 Trillion in Market Value\" (lastmod 2026-11-21). The sample issue read only 458 characters and was marked partial; see PROGRESS.md. The old strictlyvc.com/feed/ (issues titled 2019) is not used."
     },
     {
       "id": "morning-brew",
@@ -26,7 +29,9 @@
       "homepageUrl": "https://www.morningbrew.com/",
       "feedUrl": null,
       "verified": false,
-      "note": "Unverified. Discovery finds https://www.morningbrew.com/feed.xml, but the live check showed it carries site stories (/stories/..., e.g. shopping guides), not the daily newsletter issues, so it is not listed here. No public archive of the newsletter itself is known."
+      "unavailable": "not_on_web",
+      "pickerNote": "Impartly can't read Morning Brew's daily email from its website yet; forwarding is coming later.",
+      "note": "Live check run 45337784590: the homepage links the latest issue at /issues/<slug> and /issues/latest, but /issues/latest gave only 33 characters of text, no issue list was found, and the sitemaps list only /issues/latest under /issues/. /feed.xml and the news sitemap carry /stories/ articles, not the daily email, so they are kept out."
     },
     {
       "id": "stratechery",

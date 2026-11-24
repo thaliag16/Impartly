@@ -12,12 +12,12 @@
 
 import { parse, type DefaultTreeAdapterTypes as T } from "parse5";
 import { SourceFetchError } from "../../lib/sources/types";
-import { extractIssue, isSignInUrl, issueLinksFromSitemap, normalizeUrl, pageTitle, parseSitemap, sameSite } from "../../lib/sources/web/archive";
+import { extractIssue, isSignInUrl, issueLinksFromSitemap, jsonLdNodes, mainContent, normalizeUrl, pageTitle, parseSitemap, sameSite } from "../../lib/sources/web/archive";
 import { archiveFromPage, createPacer, HTML_ACCEPT, webArchiveSource, type DiscoveredArchive, type Pacer } from "../../lib/sources/web/archive-source";
 import { discoverFeed, type DiscoveryResult } from "../../lib/sources/web/discover";
 import { createWebFetcher, LIMITS, type WebFetcher } from "../../lib/sources/web/fetcher";
 import { parseFeed } from "../../lib/sources/web/feed-parser";
-import { FEED_ACCEPT } from "../../lib/sources/web/feed-source";
+import { FEED_ACCEPT, PAYWALL } from "../../lib/sources/web/feed-source";
 import { BEEHIIV_ISSUE_PATH, detectPlatform } from "../../lib/sources/web/platforms";
 
 export const PROBE_LIMITS = Object.freeze({
@@ -56,15 +56,15 @@ export const PROBES: ProbeTarget[] = [
 ];
 
 /** Table-safe, short: no pipes or line breaks, at most 120 characters. */
-export function cell(s: string | null | undefined): string {
-  return (s ?? "").replace(/[\r\n|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+export function cell(s: string | null | undefined, max = 120): string {
+  return (s ?? "").replace(/[\r\n|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
 const code = (e: unknown) => (e instanceof SourceFetchError ? e.code : "error");
 type Item = { title: string; url: string; date: string | null };
 
 function rows(entry: string, probe: string, url: string, result: string, title: string, site: string, items: Item[]): string[] {
-  const head = `| ${entry} | ${probe} | ${cell(url)} | ${cell(result)} | ${cell(title)} | ${cell(site)} |`;
+  const head = `| ${entry} | ${probe} | ${cell(url)} | ${cell(result, 320)} | ${cell(title)} | ${cell(site)} |`;
   if (!items.length) return [`${head} | | | |`];
   return items.slice(0, 3).map((it, i) => (i === 0 ? head : "| | | | | | |") + ` ${i + 1} | ${cell(it.title)} | ${cell(it.url)} | ${cell(it.date)} |`);
 }
@@ -85,6 +85,40 @@ async function sampleIssue(fetcher: WebFetcher, pacer: Pacer, a: DiscoveredArchi
   }
 }
 
+/**
+ * Why an issue page reads as it does, in counts and flags only (no page text): characters
+ * extracted and the partial flag, paragraph text on the whole page and in the block chosen
+ * as the main content, a structured-data "free" flag, a paywall notice anywhere in the
+ * page's visible paragraphs, and whether the body is mostly a script-rendered shell.
+ */
+export function diagnoseIssue(html: string, pageUrl: string): string {
+  const issue = extractIssue(html, pageUrl, { maxChars: 20_000 });
+  const doc = parse(html.slice(0, LIMITS.pageBytes));
+  const paras: string[] = [];
+  const walk = (node: T.ParentNode) => {
+    for (const child of node.childNodes) {
+      if (!("tagName" in child)) continue;
+      if (child.tagName === "script" || child.tagName === "style" || child.tagName === "template") continue;
+      if (child.tagName === "p") paras.push(textOf(child).replace(/\s+/g, " ").trim());
+      else if ("childNodes" in child) walk(child as T.ParentNode);
+    }
+  };
+  walk(doc);
+  const pageChars = paras.reduce((n, t) => n + t.length, 0);
+  const main = mainContent(doc);
+  const free = jsonLdNodes(doc).map((n) => n.isAccessibleForFree).find((v) => v !== undefined);
+  const paywall = paras.some((t) => PAYWALL.test(t));
+  const scriptBytes = (html.match(/<script\b[\s\S]*?<\/script>/gi) ?? ([] as string[])).reduce((n: number, m: string) => n + m.length, 0);
+  return [
+    `${issue.text.length} chars, partial ${issue.partial ? "yes" : "no"}`,
+    `page <p> text ${pageChars} chars in ${paras.length} paragraphs`,
+    `main block <${main?.tagName ?? "none"}>`,
+    `isAccessibleForFree ${free === undefined ? "absent" : JSON.stringify(free)}`,
+    `paywall notice ${paywall ? "yes" : "no"}`,
+    `scripts ${Math.round((100 * scriptBytes) / Math.max(1, html.length))}% of ${html.length} bytes`,
+  ].join("; ");
+}
+
 function stripQuery(u: string): string {
   try {
     const url = new URL(u);
@@ -93,6 +127,18 @@ function stripQuery(u: string): string {
     return url.toString();
   } catch {
     return u;
+  }
+}
+
+/** Fetches one issue page and reports diagnoseIssue for it (one request). */
+async function diagnoseRow(fetcher: WebFetcher, pacer: Pacer, entry: string, url: string | undefined): Promise<string[]> {
+  if (!url) return [];
+  try {
+    const page = await getPage(fetcher, pacer, url);
+    if (page.status !== 200) return rows(entry, "issue diagnostics", url, `http_${page.status}`, "", "", []);
+    return rows(entry, "issue diagnostics", url, diagnoseIssue(page.text, page.url.toString()), pageTitle(page.text), "", []);
+  } catch (e) {
+    return rows(entry, "issue diagnostics", url, code(e), "", "", []);
   }
 }
 
@@ -167,6 +213,7 @@ export async function runProbe(p: ProbeTarget): Promise<string[]> {
       return [
         ...rows(p.entry, "archive", p.url, `archive (${a.method}, ${a.issueCount} issues, newest ${a.latestIssueAt ?? "undated"})`, a.title, platform, archiveItems(a)),
         ...rows(p.entry, "sample issue", a.archiveUrl, sample, "", "", []),
+        ...(await diagnoseRow(fetcher, pacer, p.entry, a.issues[0]?.url)),
       ];
     }
     if (p.kind === "issue") {
@@ -179,7 +226,7 @@ export async function runProbe(p: ProbeTarget): Promise<string[]> {
         p.entry,
         "issue page",
         p.url,
-        `final URL ${cell(stripQuery(page.url.toString()))}; ${issue.text.length} chars, partial ${issue.partial ? "yes" : "no"}`,
+        `final URL ${cell(stripQuery(page.url.toString()))}; ${diagnoseIssue(page.text, page.url.toString())}`,
         issue.title,
         `platform: ${detectPlatform(page.text, page.url.toString()) ?? "not detected"}`,
         [{ title: issue.title, url: canonical.toString(), date: issue.published }],
@@ -277,6 +324,7 @@ export async function runProbe(p: ProbeTarget): Promise<string[]> {
         queue.push(...more);
         out.push(
           ...rows(p.entry, "followed", url, a ? `archive-like (${a.method}, ${a.issueCount} links, newest ${a.latestIssueAt ?? "undated"}); ${more.length} more candidate links` : `no issue links; ${more.length} more candidate links`, pageTitle(page.text), `platform: ${detectPlatform(page.text, page.url.toString()) ?? "not detected"}`, a ? archiveItems(a) : []),
+          ...rows(p.entry, "page as issue", url, diagnoseIssue(page.text, page.url.toString()), "", "", []),
         );
       } catch (e) {
         out.push(...rows(p.entry, "followed", url, code(e), "", "", []));

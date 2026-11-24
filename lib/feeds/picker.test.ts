@@ -206,6 +206,48 @@ describe("catalog entries marked unavailable or carrying a picker note", () => {
     expect(plain.ok && "note" in plain.preview).toBe(false);
   });
 
+  const NOT_ON_WEB: CatalogEntry = {
+    id: "inbox-daily",
+    name: "Inbox Daily",
+    homepageUrl: "https://inbox-daily.example/",
+    feedUrl: null,
+    verified: false,
+    unavailable: "not_on_web",
+    pickerNote: "Inbox Daily can't be read from its website yet; forwarding is coming later.",
+  };
+
+  it("an entry not readable on the web gives its own error and the entry's note, before the rate limit or any request", async () => {
+    for (const q of ["Inbox Daily", "inbox-daily"]) {
+      const web = ledgerWeb();
+      const r = fakeRpc();
+      const expected = { ok: false, error: "not_on_web", detail: NOT_ON_WEB.pickerNote };
+      expect(await previewNewsletter(USER, q, deps(web, r, [NOT_ON_WEB]))).toEqual(expected);
+      expect(await addNewsletter(USER, q, deps(web, r, [NOT_ON_WEB]))).toEqual(expected);
+      expect(r.calls).toEqual([]);
+      expect(web.requests).toEqual([]);
+    }
+    expect(ERROR_MESSAGES.not_on_web).toMatch(/forward/i);
+    expect(ERROR_MESSAGES.not_on_web).not.toBe(ERROR_MESSAGES.unavailable);
+  });
+
+  it("catalog picks carry a short label saying why an entry is unavailable", () => {
+    const picks = catalogPicks([REFUSING, NOT_ON_WEB, CATALOG[0]]);
+    expect(picks.find((p) => p.id === "refusing-weekly")?.unavailableLabel).toBe("site refuses automated readers");
+    expect(picks.find((p) => p.id === "inbox-daily")).toMatchObject({ unavailable: true, unavailableLabel: "not readable on the web yet" });
+    expect(picks.find((p) => p.id === "invented-ledger")?.unavailableLabel).toBeUndefined();
+  });
+
+  it("in the real catalog, Morning Brew is not readable on the web, and its old stories feed is never fetched", async () => {
+    const catalog = loadCatalog();
+    const web = ledgerWeb();
+    const r = fakeRpc();
+    const out = await previewNewsletter(USER, "Morning Brew", deps(web, r, catalog));
+    expect(out).toMatchObject({ ok: false, error: "not_on_web" });
+    expect(!out.ok && (out as Extract<typeof out, { ok: false }>).detail).toMatch(/forwarding is coming later/i);
+    expect(web.requests).toEqual([]);
+    expect(r.calls).toEqual([]);
+  });
+
   it("in the real catalog, Axios Pro Rata is unavailable", async () => {
     const catalog = loadCatalog();
     const web = ledgerWeb();
@@ -318,10 +360,19 @@ describe("the real catalog and the UI tests' fake web", () => {
     expect(catalogPicks(catalog).find((p) => p.id === "techcrunch")?.site).toBe("techcrunch.com");
   });
 
-  it.each(["TechCrunch", "StrictlyVC", "Morning Brew"])("%s previews through the e2e fake web (catalog feed, page link, common path)", async (name) => {
+  it.each(["TechCrunch", "StrictlyVC"])("%s previews through the e2e fake web (catalog feed; beehiiv archive)", async (name) => {
     const out = await previewNewsletter(USER, name, fakeDeps(fakeRpc()));
     expect(out.ok, JSON.stringify(out)).toBe(true);
     expect(out.ok && out.preview.title).toBe(name);
+  });
+
+  it("StrictlyVC previews as its beehiiv archive, dated by the sitemap", async () => {
+    const out = await previewNewsletter(USER, "StrictlyVC", fakeDeps(fakeRpc()));
+    expect(out.ok && out.preview).toMatchObject({ kind: "archive", feedUrl: "https://newsletter.strictlyvc.com/archive", itemCount: 2, lastIssueAt: "2026-11-20T13:00:00.000Z" });
+  });
+
+  it("Morning Brew is explained, not fetched, even though the fake web serves its stories feed", async () => {
+    expect(await previewNewsletter(USER, "Morning Brew", fakeDeps(fakeRpc()))).toMatchObject({ ok: false, error: "not_on_web" });
   });
 
   it("the e2e fake web covers robots, refused, no-feed and private-address errors", async () => {

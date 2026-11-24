@@ -45,6 +45,29 @@ const ROUTES: Record<string, Canned> = {
     headers: RSS,
     body: rssFeed("StrictlyVC", "https://strictlyvc.com/", [{ title: "Invented venture issue", date: "Fri, 20 Nov 2026 13:00:00 GMT" }]),
   },
+  // A beehiiv-shaped publication with no feed: the homepage shows only the latest issue,
+  // /archive lists them, and /sitemap.xml dates them. All invented.
+  "https://newsletter.strictlyvc.com/": {
+    status: 200,
+    headers: HTML,
+    body: `<!doctype html><html><head><title>StrictlyVC</title><meta name="generator" content="beehiiv"></head><body>
+<main><a href="/p/invented-venture-issue">Invented venture issue</a></main><footer><a href="/archive">See all posts</a></footer></body></html>`,
+  },
+  "https://newsletter.strictlyvc.com/archive": {
+    status: 200,
+    headers: HTML,
+    body: `<!doctype html><html><head><title>Archive | StrictlyVC</title><link rel="icon" href="https://media.beehiiv.com/invented/favicon.png"></head><body>
+<main><h1>All posts</h1><div><a href="/p/invented-venture-issue">Invented venture issue</a></div><div><a href="/p/invented-earlier-issue">Invented earlier issue</a></div></main></body></html>`,
+  },
+  "https://newsletter.strictlyvc.com/sitemap.xml": {
+    status: 200,
+    headers: { "content-type": "application/xml" },
+    body: `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://newsletter.strictlyvc.com/archive</loc></url>
+<url><loc>https://newsletter.strictlyvc.com/p/invented-venture-issue</loc><lastmod>2026-11-20T13:00:00Z</lastmod></url>
+<url><loc>https://newsletter.strictlyvc.com/p/invented-earlier-issue</loc><lastmod>2026-11-19T13:00:00Z</lastmod></url>
+</urlset>`,
+  },
   "https://www.morningbrew.com/": { status: 200, headers: HTML, body: "<!doctype html><html><head><title>Invented</title></head><body>No feed link</body></html>" },
   "https://www.morningbrew.com/feed.xml": {
     status: 200,

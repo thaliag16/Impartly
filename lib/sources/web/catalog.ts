@@ -38,8 +38,10 @@ export interface CatalogEntry {
 }
 
 /** Why a catalog newsletter cannot be read. refuses_automated_access: its site answers
- * automated readers with a refusal (e.g. HTTP 403), which Impartly does not work around. */
-export const UNAVAILABLE_REASONS = ["refuses_automated_access"] as const;
+ * automated readers with a refusal (e.g. HTTP 403), which Impartly does not work around.
+ * not_on_web: a live check found no public feed or archive of the newsletter's own issues
+ * that Impartly can read (the email may still reach Impartly by forwarding, later). */
+export const UNAVAILABLE_REASONS = ["refuses_automated_access", "not_on_web"] as const;
 export type CatalogUnavailable = (typeof UNAVAILABLE_REASONS)[number];
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

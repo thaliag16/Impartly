@@ -71,7 +71,7 @@ export function Picker({
   const added = preview ? feeds.find((f) => f.feed_url === preview.feedUrl) : undefined;
   const addIsMain = !!preview && !added;
 
-  const fail = (error: PickerError | "not_yours") => setMessage({ kind: "error", text: ERROR_MESSAGES[error] });
+  const fail = (error: PickerError | "not_yours", detail?: string) => setMessage({ kind: "error", text: detail ?? ERROR_MESSAGES[error] });
 
   const run = (key: string, task: () => Promise<void>) => {
     if (busy) return;
@@ -93,14 +93,14 @@ export function Picker({
       setPreview(null);
       setConfirmRemove(null);
       const out = await actions.preview(q);
-      if ("error" in out) fail(out.error);
+      if ("error" in out) fail(out.error, out.detail);
       else setPreview(out.preview);
     });
 
   const add = (p: FeedPreview) =>
     run("add", async () => {
       const out = await actions.add(p.query);
-      if ("error" in out) return fail(out.error);
+      if ("error" in out) return fail(out.error, out.detail);
       setPreview(null);
       setQuery("");
       setMessage({
@@ -190,7 +190,7 @@ export function Picker({
                     <span className="px-label px-muted">{m.site}</span>
                     {m.unavailable ? (
                       <span className="px-label px-muted" data-testid="pick-unavailable">
-                        Not available: site refuses automated readers
+                        Not available: {m.unavailableLabel ?? "Impartly can't read it"}
                       </span>
                     ) : null}
                   </span>

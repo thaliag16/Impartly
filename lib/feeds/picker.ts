@@ -15,11 +15,11 @@
 // characters are checked here before anything else happens.
 
 import type { Rpc } from "../mail/token-store";
-import { catalogLookup, type CatalogEntry } from "../sources/web/catalog";
+import { catalogLookup, type CatalogEntry, type CatalogUnavailable } from "../sources/web/catalog";
 import { discoverFeed, type DiscoveryResult } from "../sources/web/discover";
 import type { WebFetcher } from "../sources/web/fetcher";
 import { subscribeToNewsletter } from "../sources/web/subscribe";
-import type { AddOutcome, CatalogPick, ChangeOutcome, FeedPreview, PickerError, PreviewOutcome } from "./types";
+import type { AddOutcome, CatalogPick, ChangeOutcome, FeedPreview, PickerError, PickerFailure, PreviewOutcome } from "./types";
 
 /** Discoveries (previews and adds) allowed per user per window. Each makes up to 8 requests. */
 export const DISCOVERY_LIMIT = 20;
@@ -63,11 +63,23 @@ export function discoveryError(result: Extract<DiscoveryResult, { ok: false }>, 
   return "no_feed";
 }
 
-/** True when the query names a catalog entry Impartly cannot read (checked before any
- * rate-limit slot or request). */
-function namesUnavailable(query: string, deps: PickerDeps): boolean {
-  return !!catalogLookup(deps.catalog, query)?.unavailable;
+/** The failure for a query naming a catalog entry Impartly cannot read, else null
+ * (checked before any rate-limit slot or request). Carries the entry's picker note. */
+function unavailableFailure(query: string, deps: PickerDeps): PickerFailure | null {
+  const entry = catalogLookup(deps.catalog, query);
+  if (!entry?.unavailable) return null;
+  return {
+    ok: false,
+    error: entry.unavailable === "not_on_web" ? "not_on_web" : "unavailable",
+    ...(entry.pickerNote ? { detail: entry.pickerNote } : {}),
+  };
 }
+
+/** A few words for the catalog list: why an entry is not available. */
+const UNAVAILABLE_LABELS: Record<CatalogUnavailable, string> = {
+  refuses_automated_access: "site refuses automated readers",
+  not_on_web: "not readable on the web yet",
+};
 
 async function takeSlot(userId: string, deps: PickerDeps): Promise<boolean> {
   const ok = await deps.rpc("feeds_discovery_take", {
@@ -90,7 +102,8 @@ const hostOf = (url: string | null): string | null => {
 export async function previewNewsletter(userId: string, rawQuery: unknown, deps: PickerDeps): Promise<PreviewOutcome> {
   const query = validateQuery(rawQuery);
   if (!query) return { ok: false, error: "invalid_input" };
-  if (namesUnavailable(query, deps)) return { ok: false, error: "unavailable" };
+  const unavailable = unavailableFailure(query, deps);
+  if (unavailable) return unavailable;
   try {
     if (!(await takeSlot(userId, deps))) return { ok: false, error: "rate_limited" };
     const found = await discoverFeed(query, deps.fetcher(), deps.catalog);
@@ -120,7 +133,8 @@ export async function previewNewsletter(userId: string, rawQuery: unknown, deps:
 export async function addNewsletter(userId: string, rawQuery: unknown, deps: PickerDeps): Promise<AddOutcome> {
   const query = validateQuery(rawQuery);
   if (!query) return { ok: false, error: "invalid_input" };
-  if (namesUnavailable(query, deps)) return { ok: false, error: "unavailable" };
+  const unavailable = unavailableFailure(query, deps);
+  if (unavailable) return unavailable;
   try {
     if (!(await takeSlot(userId, deps))) return { ok: false, error: "rate_limited" };
     const r = await subscribeToNewsletter(userId, query, { rpc: deps.rpc, fetcher: deps.fetcher(), catalog: deps.catalog });
@@ -161,7 +175,7 @@ export function catalogPicks(catalog: readonly CatalogEntry[]): CatalogPick[] {
     name: e.name,
     site: hostOf(e.homepageUrl) ?? "",
     aliases: e.aliases ?? [],
-    ...(e.unavailable ? { unavailable: true as const } : {}),
+    ...(e.unavailable ? { unavailable: true as const, unavailableLabel: UNAVAILABLE_LABELS[e.unavailable] } : {}),
   }));
 }
 

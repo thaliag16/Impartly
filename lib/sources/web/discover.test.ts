@@ -181,6 +181,7 @@ describe("catalog", () => {
     "tomasz-tunguz": 45333404039,
     "the-generalist": 45333404039,
     "benedict-evans": 45333404039,
+    strictlyvc: 45337784590,
   };
 
   it("data/newsletter-catalog.json is valid, and its verified entries are exactly the ones a recorded live run backs", () => {
@@ -216,6 +217,30 @@ describe("catalog", () => {
     expect(be.pickerNote).toMatch(/not the weekly (email )?newsletter/i);
   });
 
+  it("StrictlyVC points at its beehiiv publication's public archive, not the stale strictlyvc.com feed", () => {
+    const sv = loadCatalog().find((e) => e.id === "strictlyvc")!;
+    expect(sv.homepageUrl).toBe("https://newsletter.strictlyvc.com/");
+    expect(sv.archiveUrl).toBe("https://newsletter.strictlyvc.com/archive");
+    expect(sv.feedUrl).toBeNull();
+    for (const u of [sv.homepageUrl, sv.feedUrl, sv.archiveUrl]) expect(u ?? "").not.toMatch(/^https:\/\/strictlyvc\.com/);
+  });
+
+  it("Morning Brew is marked not readable on the web, with a picker note and no feed (the /stories feed stays out)", () => {
+    const mb = loadCatalog().find((e) => e.id === "morning-brew")!;
+    expect(mb.unavailable).toBe("not_on_web");
+    expect(mb.verified).toBe(false);
+    expect(mb.feedUrl).toBeNull();
+    expect(mb.archiveUrl).toBeUndefined();
+    expect(mb.pickerNote).toMatch(/forwarding is coming later/i);
+    expect(JSON.stringify(mb)).not.toMatch(/utm_|mbcid|[?&][a-z_]+=/i);
+  });
+
+  it("Term Sheet stays as it is: unverified, no feed listed, not marked unavailable", () => {
+    const ts = loadCatalog().find((e) => e.id === "fortune-term-sheet")!;
+    expect(ts).toMatchObject({ verified: false, feedUrl: null, homepageUrl: "https://fortune.com/newsletters/termsheet/" });
+    expect(ts.unavailable).toBeUndefined();
+  });
+
   it("Axios Pro Rata stays findable but is marked unavailable, with no feed and no archive", () => {
     const ax = loadCatalog().find((e) => e.id === "axios-pro-rata")!;
     expect(ax.unavailable).toBe("refuses_automated_access");
@@ -232,6 +257,7 @@ describe("catalog", () => {
     expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "2026-11-24", verifiedRunId: 1 }] })).toEqual([]);
     expect(validateCatalog({ entries: [{ ...base, verified: false, verifiedAt: "2026-11-24", verifiedRunId: 1 }] })).toEqual([expect.stringContaining("unverified")]);
     expect(validateCatalog({ entries: [{ ...base, verified: false, unavailable: "refuses_automated_access" }] })).toEqual([]);
+    expect(validateCatalog({ entries: [{ ...base, verified: false, unavailable: "not_on_web" }] })).toEqual([]);
     expect(validateCatalog({ entries: [{ ...base, verified: false, unavailable: "down" }] })).toEqual([expect.stringContaining("unavailable")]);
     expect(validateCatalog({ entries: [{ ...base, verified: true, verifiedAt: "2026-11-24", verifiedRunId: 1, unavailable: "refuses_automated_access" }] })).toEqual([expect.stringContaining("unavailable")]);
     expect(validateCatalog({ entries: [{ ...base, verified: false, pickerNote: "x".repeat(201) }] })).toEqual([expect.stringContaining("pickerNote")]);

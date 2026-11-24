@@ -3,7 +3,7 @@
 // pages, other sites or query strings. Pages are invented (.example hosts).
 
 import { describe, expect, it } from "vitest";
-import { editionLinks, PROBE_LIMITS, PROBES } from "./probes";
+import { diagnoseIssue, editionLinks, PROBE_LIMITS, PROBES } from "./probes";
 
 describe("source probes", () => {
   it("probe URLs are clean https URLs with no query strings or fragments (no tracking parameters)", () => {
@@ -37,5 +37,20 @@ describe("source probes", () => {
       { url: "https://www.brew.example/daily/issues/invented-monday", text: "Read online" },
       { url: "https://www.brew.example/newsletters", text: "All newsletters" },
     ]);
+  });
+});
+
+describe("diagnoseIssue", () => {
+  it("reports counts and flags only, never page text", () => {
+    const page = `<html><head><script type="application/ld+json">{"@type":"NewsArticle","isAccessibleForFree":false}</script></head>
+      <body><article><p>An invented opening paragraph about invented markets.</p><p>Subscribe to continue reading.</p></article>
+      <script>window.__INVENTED__ = {}</script></body></html>`;
+    const d = diagnoseIssue(page, "https://brief.example/p/invented");
+    expect(d).toMatch(/partial yes/);
+    expect(d).toMatch(/page <p> text \d+ chars in 2 paragraphs/);
+    expect(d).toMatch(/main block <article>/);
+    expect(d).toMatch(/isAccessibleForFree false/);
+    expect(d).toMatch(/paywall notice yes/);
+    expect(d).not.toMatch(/invented/i);
   });
 });

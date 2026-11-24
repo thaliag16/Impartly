@@ -132,9 +132,18 @@ is logged in PROGRESS.md. Before adding a feed URL that discovery found, check t
 the newsletter's own feed and not the site's article feed. For entries with no feed, the
 report also tries the public archive fallback (`archiveUrl` in the catalog, else the
 homepage) and gives counts and codes only, never issue text. An entry whose site refuses
-automated readers can be kept with `unavailable: "refuses_automated_access"`; the picker
-then explains that instead of fetching. `pickerNote` is a short line shown with an entry's
-preview.
+automated readers can be kept with `unavailable: "refuses_automated_access"`, and one with no
+public source of its own issues that Impartly can read with `unavailable: "not_on_web"`; the
+picker then explains that instead of fetching. `pickerNote` is a short line shown with an
+entry's preview, or, for an unavailable entry, instead of the generic message. Candidate
+sources for entries that are not settled yet go in `tests/catalog/probes.ts`; the report's
+"Source probes" table prints what each one says it is (title, site or platform, first 3
+items with links and dates), with link following capped and kept on the same site.
+
+Discovery knows beehiiv's public conventions (`lib/sources/web/platforms.ts`): on a page
+detected as beehiiv it tries a linked `rss.beehiiv.com/feeds/<id>.xml` feed first, then the
+`/archive` page, read through the site's `/sitemap.xml` and its `/p/<slug>` issue URLs.
+robots.txt and the usual limits apply to every request.
 
 The look (GOAL.md section 1a) lives in one file, `app/theme.css`: colour tokens, borders,
 shadows and the shared classes. No colour value may appear anywhere else in the UI

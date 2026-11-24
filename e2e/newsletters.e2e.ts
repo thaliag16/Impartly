@@ -80,7 +80,9 @@ test("search → check → add → switch off → remove, and the list survives 
 
   const preview = page.getByTestId("preview");
   await expect(preview.getByRole("heading", { name: "StrictlyVC" })).toBeVisible();
-  await expect(preview.getByText("strictlyvc.com")).toBeVisible();
+  await expect(preview.getByText("newsletter.strictlyvc.com", { exact: true })).toBeVisible();
+  // StrictlyVC is a beehiiv publication with no feed: its /archive page, dated by its sitemap.
+  await expect(page.getByTestId("preview-kind")).toHaveText("No feed. Found a public archive");
   await expect(page.getByTestId("preview-last-issue")).toHaveText("Nov 20, 2026");
   // While a new feed is shown, Add is the one main action and Find steps back.
   await expect(page.getByTestId("add")).toHaveCSS("background-color", WATERMELON_RGB);
@@ -94,8 +96,8 @@ test("search → check → add → switch off → remove, and the list survives 
   await expect(row).toBeVisible();
   const stored = await storedFeeds(page);
   expect(stored).toHaveLength(1);
-  // The stored URL is the one the server found (the page's advertised feed), not user input.
-  expect(stored[0]).toMatchObject({ feed_url: "https://strictlyvc.com/feed/", title: "StrictlyVC", catalog_id: "strictlyvc", included: true });
+  // The stored URL is the one the server found (the catalog's archive page, checked live), not user input.
+  expect(stored[0]).toMatchObject({ feed_url: "https://newsletter.strictlyvc.com/archive", feed_format: "archive", title: "StrictlyVC", catalog_id: "strictlyvc", included: true });
 
   const toggle = row.getByRole("switch", { name: "Include StrictlyVC in briefings" });
   await expect(toggle).toHaveAttribute("aria-checked", "true");
@@ -118,15 +120,15 @@ test("search → check → add → switch off → remove, and the list survives 
 });
 
 test("a pasted domain finds the feed; adding the same newsletter again keeps one copy", async ({ page }) => {
-  await page.getByLabel("Name or website").fill("morningbrew.com");
+  await page.getByLabel("Name or website").fill("techcrunch.com");
   await page.getByTestId("find").click();
-  await expect(page.getByTestId("preview").getByRole("heading", { name: "Morning Brew" })).toBeVisible();
-  await expect(page.getByTestId("preview-last-issue")).toHaveText("Nov 23, 2026");
+  await expect(page.getByTestId("preview").getByRole("heading", { name: "TechCrunch" })).toBeVisible();
+  await expect(page.getByTestId("preview-last-issue")).toHaveText("Nov 22, 2026");
   await page.getByTestId("add").click();
-  await expect(page.getByTestId("picker-done")).toHaveText("Added Morning Brew.");
+  await expect(page.getByTestId("picker-done")).toHaveText("Added TechCrunch.");
 
   // The same newsletter by its catalog name now shows as already added: no second Add.
-  await page.getByLabel("Name or website").fill("Morning Brew");
+  await page.getByLabel("Name or website").fill("TechCrunch");
   await page.getByTestId("find").click();
   await expect(page.getByTestId("preview").getByText("Already in your list.")).toBeVisible();
   await expect(page.getByTestId("add")).toHaveCount(0);
@@ -200,6 +202,19 @@ test("error states: not in the catalog, robots.txt, a private address, a refusin
   await input.fill("TechCrunch");
   await page.getByTestId("find").click();
   await expect(error).toHaveText(/a lot of lookups/);
+  expect(await storedFeeds(page)).toEqual([]);
+});
+
+test("Morning Brew says it is not readable on the web yet, with its note, without fetching or storing", async ({ page }) => {
+  await page.getByLabel("Name or website").fill("Morning Brew");
+  const matches = page.getByRole("list", { name: "Catalog matches" });
+  await expect(matches.getByTestId("pick-unavailable")).toHaveText(/Not available: not readable on the web yet/);
+  await matches.getByRole("button", { name: "Check Morning Brew" }).click();
+  const error = page.getByTestId("picker-error");
+  await expect(error).toHaveText(/forwarding is coming later/i);
+  await expect(error).toHaveAttribute("role", "alert");
+  await expect(page.getByTestId("preview")).toHaveCount(0);
+  await checkScreen(page, "not on the web error");
   expect(await storedFeeds(page)).toEqual([]);
 });
 
