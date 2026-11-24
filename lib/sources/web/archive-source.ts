@@ -8,7 +8,9 @@
 //      than crawl it faster than it asks.
 //   2. the archive page (conditional GET; a 304 reads nothing), then issue links by the
 //      most structured method that finds any (archive.ts). When the page gives only
-//      heuristic links or none, a sitemap the site advertises in robots.txt is tried.
+//      heuristic links or none, a sitemap the site advertises in robots.txt is tried. On
+//      a beehiiv-hosted site (platforms.ts) the site's /sitemap.xml is tried as well,
+//      and its /p/<slug> entries count as issues.
 //      rel="next" pages are followed only while every link so far is new, at most
 //      ARCHIVE_LIMITS.maxIndexPages pages in all, never the same page twice and never to
 //      another site (pagination loops and traps end there).
@@ -30,6 +32,7 @@
 import { SourceFetchError, type NewsletterSource, type PullResult, type SourceItem } from "../types";
 import { extractIssue, isSignInUrl, pageTitle, issueLinksFromIndex, issueLinksFromSitemap, normalizeUrl, parseSitemap, sameSite, type IssueLink, type LinkMethod } from "./archive";
 import { LIMITS, type FetchedText, type WebFetcher } from "./fetcher";
+import { BEEHIIV_ISSUE_PATH, BEEHIIV_SITEMAP_PATH, detectPlatform } from "./platforms";
 
 export const HTML_ACCEPT = "text/html, application/xhtml+xml;q=0.9, */*;q=0.1";
 const SITEMAP_ACCEPT = "application/xml, text/xml;q=0.9, */*;q=0.1";
@@ -123,7 +126,7 @@ async function politeGet(ctx: Ctx, url: string, accept: string, extra: { etag?: 
 }
 
 /** Issue links from the site's advertised sitemaps (same site only, at most maxSitemaps files). */
-async function linksFromSitemaps(ctx: Ctx, sitemaps: string[], archiveUrl: string): Promise<IssueLink[]> {
+async function linksFromSitemaps(ctx: Ctx, sitemaps: string[], archiveUrl: string, issuePath?: RegExp): Promise<IssueLink[]> {
   const candidates = sitemaps
     .map((s) => normalizeUrl(s))
     .filter((s): s is string => !!s && sameSite(s, archiveUrl))
@@ -153,7 +156,7 @@ async function linksFromSitemaps(ctx: Ctx, sitemaps: string[], archiveUrl: strin
       if (child) queue.push(child);
       continue;
     }
-    const links = issueLinksFromSitemap(parsed, archiveUrl);
+    const links = issueLinksFromSitemap(parsed, archiveUrl, { issuePath });
     if (links.length) return links;
   }
   return [];
@@ -165,12 +168,18 @@ export interface FoundIssues {
   next: string | null;
 }
 
-/** Issue links for an archive page already fetched: the page's own, else the advertised sitemap's. */
+/**
+ * Issue links for an archive page already fetched: the page's own, else the advertised
+ * sitemap's. On a beehiiv site, its /sitemap.xml is a candidate too (first if nothing is
+ * advertised), read with beehiiv's /p/<slug> issue path.
+ */
 export async function findIssueLinks(ctx: Ctx, html: string, pageUrl: string, sitemaps: string[]): Promise<FoundIssues> {
   const idx = issueLinksFromIndex(html, pageUrl);
   if (idx.method === "jsonld" || idx.method === "article") return idx;
-  if (sitemaps.length) {
-    const fromSitemap = await linksFromSitemaps(ctx, sitemaps, pageUrl);
+  const beehiiv = detectPlatform(html, pageUrl) === "beehiiv";
+  const candidates = beehiiv ? [new URL(BEEHIIV_SITEMAP_PATH, pageUrl).toString(), ...sitemaps] : sitemaps;
+  if (candidates.length) {
+    const fromSitemap = await linksFromSitemaps(ctx, [...new Set(candidates)], pageUrl, beehiiv ? BEEHIIV_ISSUE_PATH : undefined);
     if (fromSitemap.length) return { links: fromSitemap, method: "sitemap", next: null };
   }
   return idx;

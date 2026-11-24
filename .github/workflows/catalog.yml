@@ -7,7 +7,8 @@
 # fail when a site has no feed or is down, and it changes nothing in the repository.
 #
 # Runs on pull requests that touch the catalog or the web-source code, and by hand. Not on
-# every push, to keep requests to the sites few (about 3 to 10 small GETs per entry).
+# every push, to keep requests to the sites few (about 3 to 10 small GETs per entry, plus
+# the source probes in tests/catalog/probes.ts: about 30 GETs in all, link following capped).
 # Free: GitHub-hosted runner, no secrets.
 
 name: Catalog check

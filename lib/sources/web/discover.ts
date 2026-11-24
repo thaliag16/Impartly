@@ -9,10 +9,14 @@
 //   4. Else common feed paths on the same site: /feed (WordPress, Substack), /rss (Ghost,
 //      beehiiv custom domains), /feed.xml, /rss.xml, /atom.xml, /index.xml (Hugo).
 //   5. No feed: the public web archive fallback (archive-source.ts). The catalog's
-//      archiveUrl if it has one, else the first HTML page seen, is checked for issue links
-//      (JSON-LD, an advertised sitemap, <article> markup, then conservative same-site
-//      links). A page that lists issues is returned as format "archive" with a preview of
-//      the issues found. At most ARCHIVE_EXTRA_FETCHES more requests, spaced politely.
+//      archiveUrl if it has one, else (on a beehiiv site) its /archive page, else the
+//      first HTML page seen, is checked for issue links (JSON-LD, an advertised sitemap,
+//      <article> markup, then conservative same-site links). A page that lists issues is
+//      returned as format "archive" with a preview of the issues found. At most
+//      ARCHIVE_EXTRA_FETCHES more requests per archive page tried, spaced politely.
+// beehiiv-hosted newsletters (platforms.ts): when the first HTML page is a beehiiv page,
+// a link on it to the publication's rss.beehiiv.com feed is tried first among the feeds,
+// and its /archive page (with /sitemap.xml and /p/<slug> issues) before the page itself.
 // Every candidate is fetched through the polite fetcher (robots.txt, SSRF checks, limits)
 // and must parse as RSS or Atom to count. At most MAX_CANDIDATES fetches per discovery.
 // The result is never trusted on the user's word: the stored feed URL is the one that
@@ -26,6 +30,7 @@ import { catalogLookup, type CatalogEntry } from "./catalog";
 import { LIMITS, type WebFetcher } from "./fetcher";
 import { parseFeed, type FeedFormat } from "./feed-parser";
 import { FEED_ACCEPT } from "./feed-source";
+import { BEEHIIV_ARCHIVE_PATH, beehiivFeedLinks, detectPlatform } from "./platforms";
 import { checkUrl } from "./safe-fetch";
 
 export const COMMON_FEED_PATHS = ["/feed", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/index.xml"] as const;
@@ -179,7 +184,8 @@ export async function discoverFeed(
       // The first HTML page: its advertised feeds first, then the common paths.
       pageSeen = true;
       firstPage = { url: res.url.toString(), html: res.text };
-      queue.unshift(...feedLinksInHtml(res.text, res.url.toString()));
+      const platformFeeds = detectPlatform(res.text, res.url.toString()) === "beehiiv" ? beehiivFeedLinks(res.text) : [];
+      queue.unshift(...new Set([...feedLinksInHtml(res.text, res.url.toString()), ...platformFeeds]));
       for (const p of COMMON_FEED_PATHS) queue.push(new URL(p, res.url.origin).toString());
     } else {
       lastError = "not_a_feed";
@@ -228,6 +234,14 @@ async function archiveFallback(
       if (r.archive || !firstPage) return { found: r.archive, error: r.error };
     }
     if (!firstPage) return { found: null };
+    // A beehiiv site lists its issues at /archive; its homepage often shows only the latest.
+    if (detectPlatform(firstPage.html, firstPage.url) === "beehiiv") {
+      const platformArchive = new URL(BEEHIIV_ARCHIVE_PATH, firstPage.url).toString();
+      if (platformArchive !== firstPage.url && platformArchive !== archiveUrl?.toString()) {
+        const r = await discoverArchiveAt(fetcher, platformArchive, pacer);
+        if (r.archive) return { found: r.archive };
+      }
+    }
     const found = await archiveFromPage(fetcher, { ...firstPage, title: pageTitle(firstPage.html) }, pacer);
     return { found };
   } catch (err) {

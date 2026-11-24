@@ -393,10 +393,12 @@ export function parseSitemap(xml: string): ParsedSitemap {
 
 /**
  * Issue links from a sitemap: news-sitemap entries, or entries under the archive's own
- * path (not the archive page itself). A whole-site sitemap with neither gives nothing,
- * rather than every page on the site. Newest first.
+ * path (not the archive page itself), or, when the hosting platform is known
+ * (platforms.ts), entries whose path matches its issue path (beehiiv: /p/<slug>). A
+ * whole-site sitemap with none of these gives nothing, rather than every page on the
+ * site. Newest first.
  */
-export function issueLinksFromSitemap(sitemap: ParsedSitemap, archiveUrl: string): IssueLink[] {
+export function issueLinksFromSitemap(sitemap: ParsedSitemap, archiveUrl: string, options: { issuePath?: RegExp } = {}): IssueLink[] {
   if (sitemap.kind !== "urlset") return [];
   const base = new URL(archiveUrl).pathname.replace(/\/+$/, "");
   const links: IssueLink[] = [];
@@ -405,7 +407,8 @@ export function issueLinksFromSitemap(sitemap: ParsedSitemap, archiveUrl: string
     if (!url || !candidateAllowed(url, archiveUrl)) continue;
     const path = new URL(url).pathname;
     const under = base !== "" && path.startsWith(`${base}/`);
-    if (!e.news && !under) continue;
+    const platformIssue = !!options.issuePath && options.issuePath.test(path);
+    if (!e.news && !under && !platformIssue) continue;
     links.push({ url, title: e.title, published: e.published });
   }
   links.sort((a, b) => (b.published ? Date.parse(b.published) : -Infinity) - (a.published ? Date.parse(a.published) : -Infinity));
