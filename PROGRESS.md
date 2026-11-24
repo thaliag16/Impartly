@@ -1,5 +1,5 @@
 ## Status
-Phase: 1 | Checks: 6/7 passing locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; run 12 CI: see the run 12 log) + `eval:summaries` set up but **no model evaluated yet** (harness self-test passes; a real score needs the SUMMARY_API_KEY secret, see Questions) + speech model tests passing in CI + RLS, Vault, pipeline and web-feed tests on real Postgres inside `npm test` | Summary eval: n/a (no model run yet) | Last run: 2026-11-23 (run 12) | Plan changed 2026-11-23: Phase 1 now fetches user-picked newsletters from public web sources; Gmail optional
+Phase: 1 | Checks: 6/7 passing locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; run 12 CI runs 45323035257 and 45323061092 green) + `eval:summaries` set up but **no model evaluated yet** (harness self-test passes; a real score needs the SUMMARY_API_KEY secret, see Questions) + speech model tests passing in CI + RLS, Vault, pipeline and web-feed tests on real Postgres inside `npm test` | Summary eval: n/a (no model run yet) | Last run: 2026-11-23 (run 12) | Plan changed 2026-11-23: Phase 1 now fetches user-picked newsletters from public web sources; Gmail optional
 
 Phase 1 started 2026-11-23 on Thalia's instruction (relayed by the session lead): "I can't confirm right now so let's put the confirmation on pause and continue the phases with the same recursive self-improvement loops." Phase 0's agent-checkable items all pass in CI; its Thalia items are **paused, not passed** (below).
 
@@ -96,7 +96,7 @@ Your iPhone check, "Tap-to-ask plays and records cleanly on a real iPhone":
 - New packages (exact): `@fontsource/pixelify-sans`, `@fontsource/silkscreen`, `@fontsource/dm-sans` 5.3.0 (OFL-1.1), `@axe-core/playwright` 4.14.0 (dev only, MPL-2.0; its `axe-core` 4.14.1 was already installed), in THIRD_PARTY_NOTICES.md. No paid dependency, no secret, no new production env name (`IMPARTLY_E2E_FAKE_WEB` is for the UI tests only and documented in README "Contributing").
 - Housekeeping: the repository has been public since 2026-11-23, so the user-agent question now only asks whether you prefer a page on your own site, and the two CI-minutes notes are marked moot.
 - Checks before → after: 6/7 → 6/7 locally (unit and database tests 674 → 737; UI tests 11 → 16; build, typecheck, lint, secret scan pass; eval self-test passes).
-- CI result: (filled in below after the run)
+- CI result (no fix attempts needed): runs 45323035257 (push) and 45323061092 (pull_request) on `agent/phase1-newsletter-picker` are green: build, typecheck, lint, unit and database tests on the runner's PostgreSQL, UI tests (Playwright's Chromium, axe-core included), secret scan; speech model tests pass; summary-eval job skipped as designed. Catalog check run 45323061006 green (report only).
 - PR: #23
 - Next: remaining-list item 1, the public web archive fallback.
 
