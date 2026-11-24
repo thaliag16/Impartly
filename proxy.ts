@@ -35,6 +35,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next's hashed build assets and the favicon.
-  matcher: ["/((?!_next/static/|_next/image|favicon\\.ico$).*)"],
+  // Everything except Next's hashed build assets, the ONNX Runtime files the build copies
+  // from the pinned package (versioned, public code, no app data), and the favicon.
+  matcher: ["/((?!_next/static/|_next/image|onnxruntime/|favicon\\.ico$).*)"],
 };

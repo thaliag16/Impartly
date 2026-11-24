@@ -135,9 +135,11 @@ describe("sign-out", () => {
 });
 
 describe("access rules", () => {
-  it("only the sign-in page, the sign-in endpoint and Next build assets are public", () => {
-    for (const p of ["/login", "/auth/sign-in", "/_next/static/chunks/app.js"]) expect(isPublicPath(p), p).toBe(true);
-    for (const p of ["/", "/mail", "/spike", "/spike/voice", "/api/speech-test", "/api/mail/gmail/connect", "/api/mail/gmail/callback", "/auth/sign-out", "/login/x", "/_next/data/x.json"]) {
+  it("only the sign-in page, the sign-in endpoint, Next build assets and the ONNX Runtime files are public", () => {
+    for (const p of ["/login", "/auth/sign-in", "/_next/static/chunks/app.js", "/onnxruntime/1.0.0/ort-wasm-simd-threaded.jsep.wasm"]) {
+      expect(isPublicPath(p), p).toBe(true);
+    }
+    for (const p of ["/onnxruntime", "/onnxruntimex/a.wasm", "/", "/mail", "/spike", "/spike/voice", "/api/speech-test", "/api/mail/gmail/connect", "/api/mail/gmail/callback", "/auth/sign-out", "/login/x", "/_next/data/x.json"]) {
       expect(isPublicPath(p), p).toBe(false);
     }
   });

@@ -1,5 +1,5 @@
 // Which requests need a signed-in user. Everything does, except the sign-in page and the
-// sign-in endpoint themselves, Next's own build assets, and the scheduled pull route,
+// sign-in endpoint themselves, Next's own build assets, the ONNX Runtime files, and the scheduled pull route,
 // which Supabase Cron calls with a bearer CRON_SECRET instead of a session (checked in
 // constant time by the route itself, lib/routes/cron-pull.ts). The proxy (proxy.ts)
 // applies this to every request; route handlers check the user again themselves.
@@ -8,8 +8,12 @@ const PUBLIC_PATHS = new Set(["/login", "/auth/sign-in", "/api/cron/pull"]);
 
 export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true;
-  // Next's hashed build output (scripts, styles, fonts). No app data lives there.
-  return pathname.startsWith("/_next/static/") || pathname.startsWith("/_next/image");
+  // Next's hashed build output (scripts, styles, fonts) and ONNX Runtime's WASM files,
+  // copied from the pinned package at build (scripts/copy-ort-runtime.mjs). No app data
+  // lives there.
+  return (
+    pathname.startsWith("/_next/static/") || pathname.startsWith("/_next/image") || pathname.startsWith("/onnxruntime/")
+  );
 }
 
 export type AccessDecision =

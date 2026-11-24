@@ -39,3 +39,9 @@ xcuserdata/
 next-env.d.ts
 test-results/
 playwright-report/
+
+# ONNX Runtime WASM files, copied from node_modules at build (scripts/copy-ort-runtime.mjs)
+public/onnxruntime/
+
+# Python packages (never committed)
+*.whl
