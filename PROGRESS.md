@@ -1,5 +1,5 @@
 ## Status
-Phase: 1 | Checks: 6/7 passing locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; run 18 CI: see the run 18 log) + `eval:summaries` set up but **no model evaluated yet** (harness self-test passes; a real score needs the SUMMARY_API_KEY secret, see Questions) + speech model tests passing in CI + RLS, Vault, pipeline, web-feed, web-archive and scheduled-pull tests on real Postgres inside `npm test` | Summary eval: n/a (no model run yet) | Last run: 2026-11-24 (run 18) | Plan changed 2026-11-23: Phase 1 now fetches user-picked newsletters from public web sources; Gmail optional
+Phase: 1 | Checks: 6/7 passing locally and in CI (build, typecheck, lint, test, test:e2e, scan:secrets; run 18 CI runs 45420835717 and 45420764737 green) + `eval:summaries` set up but **no model evaluated yet** (harness self-test passes; a real score needs the SUMMARY_API_KEY secret, see Questions) + speech model tests passing in CI + RLS, Vault, pipeline, web-feed, web-archive and scheduled-pull tests on real Postgres inside `npm test` | Summary eval: n/a (no model run yet) | Last run: 2026-11-24 (run 18) | Plan changed 2026-11-23: Phase 1 now fetches user-picked newsletters from public web sources; Gmail optional
 
 Phase 1 started 2026-11-23 on Thalia's instruction (relayed by the session lead): "I can't confirm right now so let's put the confirmation on pause and continue the phases with the same recursive self-improvement loops." Phase 0's agent-checkable items all pass in CI; its Thalia items are **paused, not passed** (below).
 
@@ -23,7 +23,7 @@ Thalia checks
 **As of run 14, every Phase 1 agent-checkable item passes in CI except the two that need a real summary model:** the summary eval at ≥ 90% and the prompt-injection fixtures (both wait on SUMMARY_API_KEY). Nothing else on the agent side blocks Phase 1. Thalia's check, "a week of real summaries I trust", needs the setup below.
 
 ### Thalia's setup checklist (in order; nothing here has been created or changed by an agent)
-1. **Merge the stacked PRs in order**, #9 through the run 18 PR (or deploy the top branch, `agent/phase1-delivery-settings`, to try it first).
+1. **Merge the stacked PRs in order**, #9 through #29 (or deploy the top branch, `agent/phase1-delivery-settings`, to try it first).
 2. **Create a Supabase project** (free plan). Apply every file in `supabase/migrations/` in name order: `supabase link` then `supabase db push`, or paste each file into the SQL editor in order. The last one enables pg_cron and pg_net and schedules the job. Until step 7 is done the job only logs a notice.
 3. **Supabase Auth:** switch off "Allow new users to sign up" (Authentication > Sign In / Providers). Then create your own user (Authentication > Users > Add user, email and password).
 4. **Note three Supabase values** (Project Settings > API): the project URL, the publishable key and the secret key. The secret key goes only into Vercel.
@@ -128,8 +128,8 @@ Your iPhone check, "Tap-to-ask plays and records cleanly on a real iPhone":
   - The fake REST API (`tests/supabase/fake-postgrest.mjs`) gains the user's own `user_settings` row (read, update, insert; another user's id refused) and a stand-in for `delivery_next_after` (service key only).
 - New packages: none. Paid dependency: none. No secret, no new env name. One migration (functions and a trigger, no new table).
 - **Checks before → after:** 6/7 → 6/7 locally. Unit and database tests 873 → 899. UI tests 22 → 27. Build, typecheck, lint and secret scan pass.
-- **CI result:** CI_RESULT_PLACEHOLDER
-- PR: PR_PLACEHOLDER (base `agent/phase1-beehiiv-extract`)
+- **CI result** (no fix attempts needed): on commit b99fddc, Checks runs 45420835717 (pull_request) and 45420764737 (push) are green: build, typecheck, lint, unit and database tests, UI tests, secret scan, and the speech model tests. The summary-eval job skipped as designed on push; on the pull request it passed without a score, because no SUMMARY_API_KEY is set.
+- PR: #29 (base `agent/phase1-beehiiv-extract`)
 - Next: Phase 2 starts only after Thalia updates "Current phase" in CLAUDE.md (she approved starting it after this screen); on the Phase 1 side, the real summary eval once SUMMARY_API_KEY exists, or Term Sheet when she answers.
 ### 2026-11-23 run 17
 - Measured first (on the new branch, before any change): 6/7 checks passing locally (unit and database tests 868 on a throwaway PostgreSQL 16, typecheck, lint, secret scan 0); `eval:summaries` still has no real model score.
