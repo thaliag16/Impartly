@@ -8,9 +8,15 @@
 //                                      allow): read, update, insert; another user's id is refused
 //   * POST /rest/v1/rpc/delivery_next_after   service key only; a stand-in for the SQL math
 //                                      (tested on real Postgres in tests/db/delivery-settings.test.ts)
+//   * POST /rest/v1/rpc/delivery_due_at   service key only; a stand-in for the SQL math
+//                                      (tested on real Postgres in tests/db/briefing-loader.test.ts)
+//   * GET  /rest/v1/newsletters, /rest/v1/summaries   the signed-in user's own rows (as RLS
+//                                      would allow), with select, `<col>=gte.<value>`, order
+//                                      and limit, as lib/briefing/load.ts reads them
 //   * any other GET /rest/v1/<table>   [] for a signed-in user (no database here)
 // Test controls (not part of Supabase): POST /__e2e/reset, POST /__e2e/exhaust-rate-limit,
-// GET /__e2e/state. The SQL these stand in for is tested on real Postgres in tests/db/.
+// POST /__e2e/seed-briefing ({ user_id, feeds, newsletters, summaries }: invented rows for
+// one user), GET /__e2e/state. The SQL these stand in for is tested on real Postgres in tests/db/.
 
 import { randomUUID } from "node:crypto";
 
@@ -24,6 +30,8 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
   let feeds = []; // { id, user_id, feed_url, feed_format, title, homepage_url, catalog_id, included, ... }
   let settings = []; // { user_id, delivery_time ("07:00:00"), timezone, updated_at }
   let attempts = new Map(); // user id -> [ms timestamps]
+  let newsletters = []; // { id, user_id, feed_id, sender_name, sender_address, subject, partial, received_at, created_at }
+  let summaries = []; // { newsletter_id, user_id, length, summary_text, created_at }
   let exhausted = false;
   const calls = [];
 
@@ -31,6 +39,8 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     feeds = [];
     settings = [];
     attempts = new Map();
+    newsletters = [];
+    summaries = [];
     exhausted = false;
     calls.length = 0;
   };
@@ -81,6 +91,9 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     delivery_next_after({ p_after, p_time, p_tz }) {
       return nextDeliveryAfter(new Date(p_after), String(p_time), String(p_tz)).toISOString();
     },
+    delivery_due_at({ p_now, p_time, p_tz, p_lead_minutes }) {
+      return latestDeliveryDueAt(new Date(p_now), String(p_time).slice(0, 5), String(p_tz), Number(p_lead_minutes)).toISOString();
+    },
   };
 
   /** Returns a Response, or null when the path is not this fake's. */
@@ -92,6 +105,19 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     }
     if (url.pathname === "/__e2e/exhaust-rate-limit" && request.method === "POST") {
       exhausted = true;
+      return json(200, { ok: true });
+    }
+    if (url.pathname === "/__e2e/seed-briefing" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const user_id = body.user_id;
+      const now = new Date().toISOString();
+      for (const f of body.feeds ?? []) {
+        feeds.push({ included: true, feed_format: "rss", created_at: now, ...f, user_id });
+      }
+      for (const n of body.newsletters ?? []) {
+        newsletters.push({ id: randomUUID(), feed_id: null, sender_name: null, sender_address: "news@invented.example", subject: "", partial: false, created_at: now, ...n, user_id });
+      }
+      for (const x of body.summaries ?? []) summaries.push({ length: "brief", created_at: now, ...x, user_id });
       return json(200, { ok: true });
     }
     if (url.pathname === "/__e2e/state" && request.method === "GET") {
@@ -130,6 +156,8 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
           .map((f) => (cols.includes("*") ? { ...f } : Object.fromEntries(cols.map((c) => [c, f[c] ?? null]))));
         return json(200, rows);
       }
+      if (url.pathname === "/rest/v1/newsletters") return json(200, query(newsletters, url, userId));
+      if (url.pathname === "/rest/v1/summaries") return json(200, query(summaries, url, userId));
       return json(200, []);
     }
     return json(405, { message: "not supported by the fake" });
@@ -190,6 +218,48 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
   }
 
   return { handle, reset };
+}
+
+/** The user's own rows (as RLS), with PostgREST's select, `gte` filters, order and limit. */
+function query(table, url, userId) {
+  let rows = table.filter((r) => r.user_id === userId);
+  for (const [key, value] of url.searchParams) {
+    if (["select", "order", "limit", "offset"].includes(key)) continue;
+    if (!value.startsWith("gte.")) throw new Error(`filter not supported by the fake: ${key}=${value}`);
+    const bound = value.slice(4);
+    rows = rows.filter((r) => r[key] !== null && compare(r[key], bound) >= 0);
+  }
+  const order = url.searchParams.get("order");
+  if (order) {
+    const [col, dir] = order.split(".");
+    rows = [...rows].sort((a, b) => compare(a[col], b[col]) * (dir === "desc" ? -1 : 1));
+  }
+  const limit = url.searchParams.get("limit");
+  if (limit) rows = rows.slice(0, Number(limit));
+  const cols = (url.searchParams.get("select") ?? "*").split(",").map((c) => c.trim());
+  return rows.map((r) => (cols.includes("*") ? { ...r } : Object.fromEntries(cols.map((c) => [c, r[c] ?? null]))));
+}
+
+/** Instants compare as times, anything else as text. */
+function compare(a, b) {
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isFinite(ta) && Number.isFinite(tb) && /\d{4}-\d\d-\d\dT/.test(String(a)) && /\d{4}-\d\d-\d\dT/.test(String(b))) return ta - tb;
+  return String(a).localeCompare(String(b));
+}
+
+/** The latest delivery D with D - lead <= now (stand-in for private.delivery_due_at). */
+function latestDeliveryDueAt(now, hhmm, tz, leadMinutes) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const local = new Date(now.getTime() + offsetMinutes(now, tz) * 60000);
+  let best = null;
+  for (let d = -2; d <= 1; d++) {
+    const wall = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + d, h, m);
+    const guess = new Date(wall - offsetMinutes(new Date(wall), tz) * 60000);
+    const at = new Date(wall - offsetMinutes(guess, tz) * 60000);
+    if (at.getTime() - leadMinutes * 60000 <= now.getTime() && (!best || at > best)) best = at;
+  }
+  return best;
 }
 
 /** Minutes east of UTC for `tz` at instant `t`. */
