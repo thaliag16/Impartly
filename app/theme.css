@@ -391,6 +391,13 @@ body {
   padding: 10px 12px;
 }
 
+/* The player's voice and speed chips, as one link to the listening settings. */
+.px-chip-link {
+  min-height: var(--target);
+  text-decoration: none;
+  color: var(--mocha-ink);
+}
+
 .px-chip-on {
   background: var(--mocha-ink);
   color: var(--sand);

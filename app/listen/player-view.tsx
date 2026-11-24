@@ -10,14 +10,26 @@
 // mic, then closes it, plays the Bell end cue and resumes. While the mic is open nothing
 // else plays: the controller refuses every play, and the transport is disabled. Answers
 // are Phase 3; for now Ask only opens and closes the mic and records nothing.
+//
+// The voice and speed chips link to the listening settings (/settings/listening). Stored
+// clips are keyed by text, voice and speed, so a new voice or speed renders the briefing
+// again, and clips this briefing no longer needs are removed after each render.
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFakeRenderer } from "../../lib/briefing/fake-renderer";
 import { BRIEFING_TITLE, createPlayer, type Player, type PlayerState } from "../../lib/briefing/player";
 import { buildQueue, loadClips, waveformLevels, type Timeline } from "../../lib/briefing/queue";
-import { cacheApiClipStore, memoryClipStore, renderAhead, type RenderSentence } from "../../lib/briefing/render-ahead";
+import {
+  cacheApiClipStore,
+  memoryClipStore,
+  pruneClips,
+  renderAhead,
+  scriptClipKeys,
+  type RenderSentence,
+} from "../../lib/briefing/render-ahead";
 import type { BriefingScript } from "../../lib/briefing/script";
+import { VOICE_LABELS } from "../../lib/briefing/settings";
 import { createWorkerRenderer } from "../../lib/briefing/worker-renderer";
 import type { BriefingVoice } from "../../lib/speech/pins";
 import { buildCue } from "../spike/tone";
@@ -31,7 +43,6 @@ type Phase =
   | { kind: "ready" }
   | { kind: "error"; message: string };
 
-const VOICE_LABELS: Record<BriefingVoice, string> = { af_heart: "Heart", bm_daniel: "Daniel" };
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
@@ -107,6 +118,9 @@ export function PlayerView({
         onProgress: (done, total) => setPhase({ kind: "preparing", done, total }),
       });
       disposeRenderer();
+      // Clips of another voice or speed (or an older briefing) have other keys, so they are
+      // never played; remove them so they do not fill the device's storage.
+      await pruneClips(store, await scriptClipKeys(script, { voice, speed, subtle })).catch(() => 0);
       const clips = await loadClips(script, { store, subtle, voice, speed });
       const queue = buildQueue(script, clips);
       if (abort.signal.aborted) return;
@@ -345,7 +359,7 @@ export function PlayerView({
         </div>
       </div>
 
-      <div className="px-row" aria-label="Voice and speed (change them in settings)" role="group">
+      <Link href="/settings/listening" className="px-row px-chip-link" data-testid="voice-speed-link">
         <span className="px-chips">
           {(Object.keys(VOICE_LABELS) as BriefingVoice[]).map((v) => (
             <span key={v} className={v === voice ? "px-chip px-chip-on" : "px-chip"} data-testid={v === voice ? "voice" : undefined}>
@@ -357,7 +371,8 @@ export function PlayerView({
         <span className="px-chip px-chips" data-testid="speed">
           {speed.toFixed(2)}x
         </span>
-      </div>
+        <span className="px-visually-hidden">Change voice and speed in settings</span>
+      </Link>
 
       <div className="px-transport">
         <button type="button" className="px-btn" onClick={() => playerRef.current?.previousNewsletter()} disabled={controlsOff}>

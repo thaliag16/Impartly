@@ -5,7 +5,9 @@
 //                                      feeds_set_included, feeds_remove: service key only,
 //                                      each scoped to the p_user_id it is given, as the SQL is
 //   * GET/PATCH/POST /rest/v1/user_settings   the signed-in user's own row only (as RLS would
-//                                      allow): read, update, insert; another user's id is refused
+//                                      allow): read, update, insert; another user's id is refused;
+//                                      voice, speed (numeric, read back as text) and feed_order
+//                                      with the table's own checks
 //   * POST /rest/v1/rpc/delivery_next_after   service key only; a stand-in for the SQL math
 //                                      (tested on real Postgres in tests/db/delivery-settings.test.ts)
 //   * POST /rest/v1/rpc/delivery_due_at   service key only; a stand-in for the SQL math
@@ -20,6 +22,8 @@
 
 import { randomUUID } from "node:crypto";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const json = (status, body) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -28,7 +32,7 @@ const json = (status, body) =>
  */
 export function createFakePostgrest({ serviceKey, userIdForToken }) {
   let feeds = []; // { id, user_id, feed_url, feed_format, title, homepage_url, catalog_id, included, ... }
-  let settings = []; // { user_id, delivery_time ("07:00:00"), timezone, updated_at }
+  let settings = []; // { user_id, delivery_time ("07:00:00"), timezone, voice, speed ("1.00"), feed_order, updated_at }
   let attempts = new Map(); // user id -> [ms timestamps]
   let newsletters = []; // { id, user_id, feed_id, sender_name, sender_address, subject, partial, received_at, created_at }
   let summaries = []; // { newsletter_id, user_id, length, summary_text, created_at }
@@ -181,8 +185,22 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     const check = (body) => {
       if ("delivery_time" in body && !validTime(body.delivery_time)) return json(400, { code: "22007", message: "invalid time" });
       if ("timezone" in body && !validZone(body.timezone)) return json(400, { code: "23514", message: "check violation" });
+      // The table's checks: voice in the two voices, speed numeric(3,2) 0.50 to 2.00, at most
+      // 200 non-null uuids in feed_order.
+      if ("voice" in body && !["af_heart", "bm_daniel"].includes(body.voice)) return json(400, { code: "23514", message: "check violation" });
+      if ("speed" in body) {
+        const n = Number(body.speed);
+        if (!Number.isFinite(n) || n < 0.5 || n > 2) return json(400, { code: "23514", message: "check violation" });
+      }
+      if (
+        "feed_order" in body &&
+        !(Array.isArray(body.feed_order) && body.feed_order.length <= 200 && body.feed_order.every((id) => typeof id === "string" && UUID.test(id)))
+      ) {
+        return json(400, { code: "23514", message: "check violation" });
+      }
       return null;
     };
+    const asSpeed = (v) => Number(v).toFixed(2);
     const asTime = (t) => (t.length === 5 ? `${t}:00` : t);
 
     if (request.method === "GET") return json(200, own().map(pick));
@@ -197,6 +215,9 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
       for (const r of rows) {
         if (body.delivery_time) r.delivery_time = asTime(body.delivery_time);
         if (body.timezone) r.timezone = body.timezone;
+        if ("voice" in body) r.voice = body.voice;
+        if ("speed" in body) r.speed = asSpeed(body.speed);
+        if ("feed_order" in body) r.feed_order = [...body.feed_order];
         r.updated_at = new Date().toISOString();
       }
       return url.searchParams.has("select") ? json(200, rows.map(pick)) : new Response(null, { status: 204 });
@@ -210,6 +231,10 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
         user_id: userId,
         delivery_time: asTime(body.delivery_time ?? "07:00"),
         timezone: body.timezone ?? "UTC",
+        voice: body.voice ?? "af_heart",
+        speed: asSpeed(body.speed ?? 1),
+        feed_order: [...(body.feed_order ?? [])],
+        summary_length: "brief",
         updated_at: new Date().toISOString(),
       });
       return new Response(null, { status: 201 });

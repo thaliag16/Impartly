@@ -67,6 +67,41 @@ describe.skipIf(!databaseUrl)("listening settings on real Postgres", () => {
     expect(await row(B)).toEqual(before);
   });
 
+  it("a second user cannot write the first user's voice, speed or order by insert, upsert, re-pointing or delete (run 25)", async () => {
+    const before = await row(A);
+    const C = randomUUID(); // a user with no settings row yet
+    await q("insert into auth.users (id) values ($1)", [C]);
+
+    // B inserts a row naming A (who has one) or C (who has none): refused by RLS.
+    for (const target of [A, C]) {
+      const r = await attempt(
+        db.admin,
+        { kind: "user", id: B },
+        "insert into public.user_settings (user_id, voice, speed, feed_order) values ($1, 'bm_daniel', 2, $2)",
+        [target, [feeds[B][0]]],
+      );
+      expect(r.error?.code, `insert for ${target === A ? "A" : "C"}`).toBe("42501");
+    }
+    // The save path's insert-or-update in one statement, aimed at A's row.
+    const upsert = await attempt(
+      db.admin,
+      { kind: "user", id: B },
+      "insert into public.user_settings (user_id, voice, speed, feed_order) values ($1, 'bm_daniel', 2, $2) on conflict (user_id) do update set voice = excluded.voice, speed = excluded.speed, feed_order = excluded.feed_order",
+      [A, [feeds[B][0]]],
+    );
+    expect(upsert.error?.code).toBe("42501");
+    // B moves its own row onto A's id: user_id is not an updatable column.
+    const repoint = await attempt(db.admin, { kind: "user", id: B }, "update public.user_settings set user_id = $1 where user_id = $2", [A, B]);
+    expect(repoint.error?.code).toBe("42501");
+    // B deletes A's row: no row is visible to B, so nothing goes.
+    const del = await attempt(db.admin, { kind: "user", id: B }, "delete from public.user_settings where user_id = $1", [A]);
+    expect(del.error).toBeNull();
+    expect(del.rowCount).toBe(0);
+
+    expect(await row(A)).toEqual(before);
+    expect((await q("select count(*)::int as n from public.user_settings where user_id = $1", [C])).rows[0].n).toBe(0);
+  });
+
   it("a user reads only their own order", async () => {
     const r = await attempt(db.admin, { kind: "user", id: B }, "select user_id, feed_order from public.user_settings");
     expect(r.rows).toEqual([{ user_id: B, feed_order: [] }]);
