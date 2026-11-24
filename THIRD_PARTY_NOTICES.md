@@ -16,6 +16,7 @@ their own licenses. Add a row here whenever one is added.
 | ESLint | Linting (dev only) | MIT | https://github.com/eslint/eslint |
 | eslint-config-next | Next.js lint rules (dev only) | MIT | https://github.com/vercel/next.js |
 | typescript-eslint | TypeScript lint rules, via eslint-config-next (dev only) | MIT | https://github.com/typescript-eslint/typescript-eslint |
+| actions/checkout, actions/setup-node, actions/upload-artifact | GitHub Actions CI steps (CI only, pinned to commit SHAs) | MIT | https://github.com/actions |
 | kokoro-js | Runs Kokoro in Node and the browser | Apache 2.0 | https://www.npmjs.com/package/kokoro-js |
 | Transformers.js | Model loading for kokoro-js | Apache 2.0 | https://github.com/huggingface/transformers.js |
 | ONNX Runtime | Runs ONNX models on CPU | MIT | https://github.com/microsoft/onnxruntime |
