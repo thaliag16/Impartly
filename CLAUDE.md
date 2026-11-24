@@ -35,5 +35,9 @@ possible running cost.
   adds a paid dependency.
 - Work on one roadmap phase at a time. Do not build ahead.
 
+## Working loop
+Read GOAL.md before starting work. It holds the finish line, the done criteria
+for each phase and the improvement loop agents follow. Log work in PROGRESS.md.
+
 ## Current phase
 Phase 0: spike. Update this line when a gate passes.
