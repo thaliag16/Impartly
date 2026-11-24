@@ -144,3 +144,46 @@ test("briefing playback and the open mic are mutually exclusive", async ({ page 
   expect(result.micLive).toBe(0);
   expect(result.violations).toEqual([]);
 });
+
+test("no other sound plays while the mic is open: cue Previews and the recording player", async ({ page }) => {
+  // A first ask leaves a recording, so the "Play my recording" player exists.
+  await page.getByRole("button", { name: "Start" }).click();
+  await expect(status(page)).toHaveText("Playing");
+  await page.getByRole("button", { name: /Tap to ask/ }).click();
+  await expect(status(page)).toContainText("Listening");
+  await expect(status(page)).toHaveText("Playing", { timeout: 15_000 });
+  const recording = page.locator("audio[controls]");
+  await expect(recording).toHaveCount(1);
+
+  // Sounds already playing when the listener taps Tap to ask: the recording and a
+  // Preview (a cue sound, but not the start/end marker the CLAUDE.md exception covers).
+  await recording.evaluate((element: HTMLAudioElement) => element.play());
+  await expect.poll(() => recording.evaluate((element: HTMLAudioElement) => !element.paused)).toBe(true);
+  await page.evaluate(() => {
+    window.__probe.attackOthersOnMicOpen = true;
+  });
+  await page.getByRole("button", { name: "Preview" }).nth(1).click();
+  await page.getByRole("button", { name: /Tap to ask/ }).click();
+
+  // Right after the mic opens, the probe presses every Preview and plays every player.
+  await expect.poll(async () => (await probe(page)).micOpens).toBe(2);
+  await expect.poll(async () => (await probe(page)).attacks.length).toBeGreaterThan(0);
+
+  // Try again in the middle of recording.
+  await expect(status(page)).toContainText("Listening");
+  await page.evaluate(() => window.__probe.attackOthers());
+  await page.waitForTimeout(300);
+  expect((await probe(page)).otherAudio).toEqual([]);
+  for (const button of await page.getByRole("button", { name: "Preview" }).all()) {
+    await expect(button).toBeDisabled();
+  }
+
+  await expect(status(page)).toHaveText("Playing", { timeout: 15_000 });
+  const result = await probe(page);
+  expect(result.micLive).toBe(0);
+  expect(result.otherAudio).toEqual([]);
+  expect(result.violations).toEqual([]);
+
+  // Previews work again once the mic is closed.
+  await expect(page.getByRole("button", { name: "Preview" }).first()).toBeEnabled();
+});
