@@ -6,9 +6,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { renderAhead, type AudioClip, type ClipStore } from "../../../lib/briefing/render-ahead";
+import type { BriefingScript } from "../../../lib/briefing/script";
+import { createWorkerRenderer, type RendererEvent, type WorkerRenderer } from "../../../lib/briefing/worker-renderer";
 import { splitSentences } from "../../../lib/speech/sentences";
 import { encodeWav } from "../../../lib/speech/wav";
-import type { WorkerReply, WorkerRequest } from "./worker";
 
 const VOICES = [
   { id: "af_heart", label: "Heart (American, female)" },
@@ -38,21 +40,28 @@ const SAMPLE =
 
 // Kokoro cuts off long input, so it is always fed one sentence at a time.
 const SENTENCES = splitSentences(SAMPLE);
+// The sample as a briefing script, so this page renders through the briefing's own path:
+// render-ahead and the shared Kokoro worker renderer (lib/briefing/).
+const SCRIPT: BriefingScript = {
+  sentences: SENTENCES.map((text, index) => ({ index, kind: "summary", text, section: null, itemId: null })),
+  sections: [],
+  storyCount: 0,
+};
 
 function toWav(parts: Float32Array[], sampleRate: number): Blob {
   return new Blob([encodeWav(parts, sampleRate)], { type: "audio/wav" });
 }
 
 export default function VoiceTest() {
-  const worker = useRef<Worker | null>(null);
+  const renderer = useRef<WorkerRenderer | null>(null);
   const loadedEngine = useRef<EngineId | null>(null);
+  const run$ = useRef<AbortController | null>(null);
   const startedAt = useRef(0);
   const playerRef = useRef<HTMLAudioElement | null>(null);
   const queue = useRef<string[]>([]);
   const playing = useRef(false);
   const waitingSince = useRef(0);
   const parts = useRef<Float32Array[]>([]);
-  const totals = useRef({ render: 0, audio: 0, sampleRate: 24000 });
 
   const [engine, setEngine] = useState<EngineId>("wasm-1");
   const [voice, setVoice] = useState<VoiceId>("af_heart");
@@ -94,69 +103,30 @@ export default function VoiceTest() {
     return () => window.clearInterval(timer);
   }, [busy]);
 
-  const send = (request: WorkerRequest) => worker.current?.postMessage(request);
-
-  const startRender = useCallback(() => {
-    parts.current = [];
-    totals.current = { render: 0, audio: 0, sampleRate: 24000 };
-    log(`RENDERING ${SENTENCES.length} sentences, voice = ${voice}`);
-    send({ type: "render", sentences: SENTENCES, voice });
-  }, [log, voice]);
-
-  const handleReply = useCallback(
-    (reply: WorkerReply) => {
+  const onEvent = useCallback(
+    (event: RendererEvent) => {
       waitingSince.current = performance.now();
-      if (reply.type === "log") log(reply.message);
-      if (reply.type === "progress") setProgress(reply.message);
-      if (reply.type === "ready") {
-        log(`MODEL READY in ${reply.seconds.toFixed(1)}s`);
-        startRender();
-      }
-      if (reply.type === "sentence") {
-        const audioSeconds = reply.audio.length / reply.sampleRate;
-        totals.current.render += reply.seconds;
-        totals.current.audio += audioSeconds;
-        totals.current.sampleRate = reply.sampleRate;
-        parts.current.push(reply.audio);
-        if (reply.index === 0) log(`FIRST SENTENCE ready after ${reply.seconds.toFixed(1)}s`);
-        log(`  ${reply.index + 1}: ${audioSeconds.toFixed(1)}s of audio in ${reply.seconds.toFixed(1)}s`);
-        queue.current.push(URL.createObjectURL(toWav([reply.audio], reply.sampleRate)));
-        if (!playing.current) playNext();
-      }
-      if (reply.type === "done") {
-        const { render, audio, sampleRate } = totals.current;
-        log(
-          `DONE: ${audio.toFixed(1)}s of audio in ${render.toFixed(1)}s ` +
-            `= ${(audio / render).toFixed(2)}x real time (above 1 is faster than listening)`,
-        );
-        setAudioUrl((previous) => {
-          if (previous) URL.revokeObjectURL(previous);
-          return URL.createObjectURL(toWav(parts.current, sampleRate));
-        });
-        setProgress("");
-        setBusy(false);
-      }
-      if (reply.type === "error") {
-        log(`FAILED: ${reply.message}`);
-        setProgress("");
-        setBusy(false);
-      }
+      if (event.type === "log") log(event.message);
+      if (event.type === "progress") setProgress(event.message);
+      if (event.type === "ready") log(`MODEL READY in ${event.seconds.toFixed(1)}s`);
     },
-    [log, playNext, startRender],
+    [log],
   );
-
-  // The worker outlives re-renders, so route its messages through a ref that
-  // always points at the latest handler.
-  const latestHandler = useRef(handleReply);
+  // The renderer outlives re-renders, so route its events through a ref that always
+  // points at the latest handler.
+  const latestOnEvent = useRef(onEvent);
   useEffect(() => {
-    latestHandler.current = handleReply;
-  }, [handleReply]);
+    latestOnEvent.current = onEvent;
+  }, [onEvent]);
 
-  const run = useCallback(() => {
+  useEffect(() => () => renderer.current?.dispose(), []);
+
+  const run = useCallback(async () => {
     setBusy(true);
     setWaited(0);
     waitingSince.current = performance.now();
     queue.current = [];
+    parts.current = [];
 
     // Unlock the player during this tap so sentences can start by themselves later.
     const player = playerRef.current;
@@ -172,32 +142,86 @@ export default function VoiceTest() {
     }
 
     const choice = ENGINES.find((item) => item.id === engine) ?? ENGINES[0];
-    if (!worker.current || loadedEngine.current !== engine) {
-      worker.current?.terminate();
-      const created = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-      created.addEventListener("message", (event: MessageEvent<WorkerReply>) =>
-        latestHandler.current(event.data),
+    if (!renderer.current || loadedEngine.current !== engine) {
+      renderer.current?.dispose();
+      const threads = self.crossOriginIsolated ? choice.threads : 1;
+      renderer.current = createWorkerRenderer({
+        device: choice.device,
+        threads,
+        onEvent: (event) => latestOnEvent.current(event),
+      });
+      loadedEngine.current = engine;
+      log(`LOADING model: ${choice.label}`);
+    }
+    const controller = new AbortController();
+    run$.current = controller;
+
+    // Each sentence plays as soon as render-ahead stores it.
+    let sampleRate = 24000;
+    let index = 0;
+    const store: ClipStore = {
+      get: async () => undefined, // always render, so the timings are measured
+      put: async (_key: string, clip: AudioClip) => {
+        sampleRate = clip.sampleRate;
+        parts.current.push(clip.samples);
+        queue.current.push(URL.createObjectURL(toWav([clip.samples], clip.sampleRate)));
+        if (!playing.current) playNext();
+      },
+    };
+    const current = renderer.current;
+    try {
+      await current.load();
+      log(`RENDERING ${SENTENCES.length} sentences, voice = ${voice}`);
+      const report = await renderAhead(SCRIPT, {
+        voice,
+        speed: 1,
+        store,
+        render: async (text, chosen, speed, signal) => {
+          const result = await current.render(text, chosen, speed, signal);
+          const audioSeconds = result.clip.samples.length / result.clip.sampleRate;
+          if (index === 0) log(`FIRST SENTENCE ready after ${result.seconds.toFixed(1)}s`);
+          log(`  ${index + 1}: ${audioSeconds.toFixed(1)}s of audio in ${result.seconds.toFixed(1)}s`);
+          index++;
+          return result;
+        },
+        subtle: crypto.subtle,
+        signal: controller.signal,
+        onProgress: (done, total) => {
+          waitingSince.current = performance.now();
+          if (done < total) setProgress(`Rendering sentence ${done + 1} of ${total}`);
+        },
+      });
+      log(
+        `DONE: ${report.audioSeconds.toFixed(1)}s of audio in ${report.renderSeconds.toFixed(1)}s ` +
+          `= ${(report.audioSeconds / report.renderSeconds).toFixed(2)}x real time (above 1 is faster than listening)`,
       );
-      created.addEventListener("error", (event) => {
-        log(`WORKER CRASHED: ${event.message || "no details given"}`);
-        worker.current = null;
+      setAudioUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return URL.createObjectURL(toWav(parts.current, sampleRate));
+      });
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const stage = (error as { stage?: string }).stage;
+      log(`FAILED${stage ? ` (${stage})` : ""}: ${(error as Error).message}`);
+      if (stage === "worker" || stage === "runtime" || stage === "model") {
+        renderer.current?.dispose();
+        renderer.current = null;
         loadedEngine.current = null;
+      }
+    } finally {
+      if (run$.current === controller) {
+        run$.current = null;
         setProgress("");
         setBusy(false);
-      });
-      worker.current = created;
-      loadedEngine.current = engine;
-      const threads = self.crossOriginIsolated ? choice.threads : 1;
-      log(`LOADING model: ${choice.label}`);
-      send({ type: "load", device: choice.device, threads });
-    } else {
-      startRender();
+      }
     }
-  }, [engine, log, startRender]);
+  }, [engine, log, playNext, voice]);
 
   const stop = () => {
-    worker.current?.terminate();
-    worker.current = null;
+    run$.current?.abort();
+    run$.current = null;
+    renderer.current?.dispose();
+    renderer.current = null;
     loadedEngine.current = null;
     log(`STOPPED by you after waiting ${waited}s on the current step`);
     setProgress("");
@@ -273,7 +297,7 @@ export default function VoiceTest() {
           Stop
         </button>
       ) : (
-        <button onClick={run} style={{ ...bigButton, background: "#1f1e1d", color: "#faf9f5" }}>
+        <button onClick={() => void run()} style={{ ...bigButton, background: "#1f1e1d", color: "#faf9f5" }}>
           Render the sample briefing
         </button>
       )}

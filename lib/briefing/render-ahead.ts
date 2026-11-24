@@ -7,8 +7,8 @@
 // Returns a render report (device seconds, audio seconds, characters) for the render
 // cost log (GOAL.md Phase 2, section 6 budget).
 //
-// The renderer is injected: the browser passes one that talks to the Kokoro worker;
-// tests pass a fake.
+// The renderer is injected: the browser passes the Kokoro worker renderer
+// (lib/briefing/worker-renderer.ts); tests pass a fake.
 
 import { sha256Hex } from "../speech/pinned-files";
 import { isBriefingVoice, type BriefingVoice } from "../speech/pins";
@@ -19,11 +19,13 @@ export interface AudioClip {
   samples: Float32Array;
 }
 
-/** Renders one sentence; `seconds` is the wall-clock render time. */
+/** Renders one sentence; `seconds` is the wall-clock render time. An aborted signal
+ * cancels the render (lib/briefing/worker-renderer.ts is the browser's renderer). */
 export type RenderSentence = (
   text: string,
   voice: BriefingVoice,
   speed: number,
+  signal?: AbortSignal,
 ) => Promise<{ clip: AudioClip; seconds: number }>;
 
 export interface ClipStore {
@@ -97,7 +99,7 @@ export async function renderAhead(
       report.cached++;
       report.audioSeconds += kept.samples.length / kept.sampleRate;
     } else {
-      const { clip, seconds } = await render(sentence.text, voice, speed);
+      const { clip, seconds } = await render(sentence.text, voice, speed, signal);
       await store.put(key, clip);
       const length = clip.samples.length / clip.sampleRate;
       report.rendered++;

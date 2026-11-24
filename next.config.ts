@@ -25,6 +25,19 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // ONNX Runtime's WASM files, copied from the pinned package at build
+        // (scripts/copy-ort-runtime.mjs) so no runtime code comes from a CDN. The
+        // version is in the path, so they can be cached for good. The policy headers
+        // let an isolated page's worker load them (and start threads from the .mjs).
+        source: "/onnxruntime/:path*",
+        headers: [
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
+      {
         // An isolated page may only start a worker whose script carries the
         // same policy, so the app's own script files declare it too.
         source: "/_next/static/:path*",

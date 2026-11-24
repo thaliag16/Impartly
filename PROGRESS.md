@@ -40,6 +40,7 @@ Agent-checkable (GOAL.md Phase 1, new list)
 | 21 | 45433706771 | df6f39d | 0% (0/20) | 0/5 | not shown | same; ~30 s for 20 requests |
 | 22 | 45435436838 | 007689b | 70% (14/20) | 4/5 | 8,100 prompt + 4,286 completion tokens (2,064 thinking), reported cost 0.00654 | thinking off; 2 headline requests still thought ~1,000 tokens and ran out of room |
 | 22 | 45435911230 | 4aac395 | **100% (20/20)** | **5/5** | 10,084 prompt + 1,996 completion tokens (0 thinking), reported cost 0.00274 | prompt: one paragraph, digits as written, no disclaimers; thinking headroom 3,072 |
+| 22 | 45436461999 | 6ec8dc9 | **100% (20/20)** | **5/5** | reported cost ~0.00278 | push 3 (the run 22 log commit); no prompt change, result repeats |
 
 Optional, not a gate: Gmail source. Adapter, detection, HTML to text and Vault tokens (run 9, PR #19); sign-in on every route, connect/callback/disconnect and the pull-store-summarize pipeline (run 10, PR #20). All tested with fakes and invented fixtures; no real mailbox pulled. Its tests must stay green.
 
