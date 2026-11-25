@@ -104,7 +104,7 @@ describe("CRON_SECRET check", () => {
 });
 
 function result(schedule?: PipelineResult["schedule"]): PipelineResult {
-  return { userId: "u", sources: [], connections: [], feeds: [], summaries: { created: 0, failed: 0, deferred: 0 }, schedule };
+  return { userId: "u", sources: [], connections: [], feeds: [], summaries: { created: 0, reused: 0, failed: 0, deferred: 0 }, schedule };
 }
 
 describe("what a run means for the schedule", () => {
@@ -190,6 +190,10 @@ describe("one tick", () => {
       },
     });
     expect(seen?.cycleStart.toISOString()).toBe("2026-11-24T14:30:00.000Z");
+    // Cost: the delivery (recorded with each summary's spend) and its briefing window
+    // (delivery minus the lead: issues stored before it are never played, so not summarized).
+    expect(seen?.deliveryAt?.toISOString()).toBe("2026-11-24T15:00:00.000Z");
+    expect(seen?.playableSince?.toISOString()).toBe("2026-11-24T14:30:00.000Z");
   });
 
   it("stops claiming when not even a feed fits in the time left, leaving the rest for the next tick", async () => {

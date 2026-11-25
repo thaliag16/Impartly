@@ -123,12 +123,36 @@ describe("device class hint (coarse, no fingerprinting)", () => {
 });
 
 describe("writeRenderLog", () => {
-  // A stand-in for the user's Supabase client: records the insert, returns stored rows.
-  function fakeClient(options: { insertError?: boolean; selectError?: boolean; stored?: Record<string, unknown>[] } = {}) {
+  // A stand-in for the user's Supabase client: records the insert, returns stored rows, and
+  // the briefing's summary usage rows (summary_usage, own rows under RLS).
+  function fakeClient(
+    options: {
+      insertError?: boolean;
+      selectError?: boolean;
+      stored?: Record<string, unknown>[];
+      usage?: Record<string, unknown>[];
+      usageError?: boolean;
+    } = {},
+  ) {
     const inserted: unknown[] = [];
     const filters: [string, unknown][] = [];
+    const usageFilters: [string, unknown][] = [];
     const client = {
       from(table: string) {
+        if (table === "summary_usage") {
+          return {
+            select: (cols: string) => {
+              expect(cols).toBe("cost_usd");
+              return {
+                eq: async (col: string, value: unknown) => {
+                  usageFilters.push([col, value]);
+                  if (options.usageError) return { data: null, error: { message: "boom" } };
+                  return { data: options.usage ?? [], error: null };
+                },
+              };
+            },
+          };
+        }
         expect(table).toBe("render_log");
         return {
           insert: async (row: unknown) => {
@@ -148,8 +172,21 @@ describe("writeRenderLog", () => {
         };
       },
     };
-    return { client: client as never, inserted, filters };
+    return { client: client as never, inserted, filters, usageFilters };
   }
+
+  it("checks the briefing's summary spend from its recorded usage, and never fails on it", async () => {
+    const fake = fakeClient({ usage: [{ cost_usd: "0.00012" }, { cost_usd: 0.00013 }] });
+    const out = await writeRenderLog(fake.client, input());
+    expect(fake.usageFilters).toEqual([["delivery_at", DELIVERY]]);
+    expect(out).toMatchObject({ ok: true, budget: { over: [] } });
+    expect((out as { budget: { summaryCostUsd: number } }).budget.summaryCostUsd).toBeCloseTo(0.00025, 10);
+    const over = await writeRenderLog(fakeClient({ usage: [{ cost_usd: 0.2 }] }).client, input());
+    expect(over).toMatchObject({ ok: true, budget: { over: ["summary_cost"] } });
+    // Unreadable usage: unknown, not an error (the render row is already saved).
+    const unknown = await writeRenderLog(fakeClient({ usageError: true }).client, input());
+    expect(unknown).toMatchObject({ ok: true, budget: { summaryCostUsd: null, over: [] } });
+  });
 
   it("inserts exactly one row and checks the briefing's budget over its rows", async () => {
     const fake = fakeClient();

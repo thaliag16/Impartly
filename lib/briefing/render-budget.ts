@@ -39,7 +39,7 @@ export const RENDER_BUDGET = Object.freeze({
   maxSummaryCostUsd: 0.1,
 });
 
-export type BudgetFlag = "real_time_factor" | "render_time" | "storage";
+export type BudgetFlag = "real_time_factor" | "render_time" | "storage" | "summary_cost";
 
 /** One render of a briefing, as the render log stores it. */
 export interface BudgetRow {
@@ -57,6 +57,8 @@ export interface BriefingBudget {
   realTimeFactor: number;
   clipBytes: number;
   serverCostUsd: number;
+  /** What the briefing's summaries cost (recorded usage); null when unknown. */
+  summaryCostUsd: number | null;
   over: BudgetFlag[];
 }
 
@@ -65,8 +67,33 @@ export function clipBytes(audioSeconds: number, sampleRate = KOKORO_SAMPLE_RATE)
   return Math.round(audioSeconds * sampleRate * BYTES_PER_SAMPLE);
 }
 
+/**
+ * What a briefing's summaries cost, from its summary_usage rows (one per model call the
+ * pipeline made for that delivery; copied summaries cost nothing and have no row). The
+ * cost is what the provider reported; rows without one are counted as unreported.
+ */
+export function summarySpend(rows: readonly { cost_usd: unknown }[]): {
+  costUsd: number | null;
+  summaries: number;
+  unreported: number;
+} {
+  let cost = 0;
+  let reported = 0;
+  for (const r of rows) {
+    const v = r.cost_usd === null || r.cost_usd === undefined || r.cost_usd === "" ? NaN : Number(r.cost_usd);
+    if (Number.isFinite(v) && v >= 0) {
+      cost += v;
+      reported++;
+    }
+  }
+  return { costUsd: reported ? Math.round(cost * 1e10) / 1e10 : null, summaries: rows.length, unreported: rows.length - reported };
+}
+
 /** Checks one briefing (every render logged for one delivery) against the budget. */
-export function checkBriefingBudget(rows: readonly BudgetRow[]): BriefingBudget {
+export function checkBriefingBudget(
+  rows: readonly BudgetRow[],
+  summary: { costUsd: number | null } = { costUsd: null },
+): BriefingBudget {
   if (rows.length === 0) throw new Error("A briefing's budget needs at least one render");
   const deliveryAt = rows[0].deliveryAt;
   if (rows.some((r) => r.deliveryAt !== deliveryAt)) throw new Error("Rows must belong to one briefing");
@@ -80,6 +107,7 @@ export function checkBriefingBudget(rows: readonly BudgetRow[]): BriefingBudget 
   if (realTimeFactor > RENDER_BUDGET.maxRealTimeFactor) over.push("real_time_factor");
   if (renderSeconds > RENDER_BUDGET.maxRenderSeconds) over.push("render_time");
   if (bytes > RENDER_BUDGET.maxClipBytes) over.push("storage");
+  if (summary.costUsd !== null && summary.costUsd > RENDER_BUDGET.maxSummaryCostUsd) over.push("summary_cost");
 
   return {
     deliveryAt,
@@ -88,6 +116,7 @@ export function checkBriefingBudget(rows: readonly BudgetRow[]): BriefingBudget 
     realTimeFactor,
     clipBytes: bytes,
     serverCostUsd: RENDER_BUDGET.serverCostUsd,
+    summaryCostUsd: summary.costUsd,
     over,
   };
 }
@@ -104,8 +133,8 @@ export function flagBriefings(rows: readonly BudgetRow[]): BriefingBudget[] {
 
 /**
  * The summary model's cost for a full briefing, projected from a measured run (the cost
- * the provider reported for `summaries` summaries). The app does not yet store per-summary
- * usage, so the measured runs are the real-model summary evals (see PROGRESS.md).
+ * the provider reported for `summaries` summaries): for planning, before real briefings
+ * exist. Real briefings are checked from their recorded usage (summarySpend, run 27).
  */
 export function summaryCostPerBriefing(
   measured: { costUsd: number; summaries: number },

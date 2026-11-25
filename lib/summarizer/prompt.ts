@@ -1,3 +1,4 @@
+import { trimForSummary } from "./trim";
 import { LENGTH_LIMITS, type Newsletter, type SummaryLength } from "./types";
 
 export interface ChatMessage {
@@ -34,7 +35,8 @@ export function systemPrompt(length: SummaryLength): string {
   ].join("\n");
 }
 
-export function userMessage(newsletter: Newsletter): string {
+/** The newsletter as one data block. Its text is trimmed first (./trim.ts: cost). */
+export function userMessage(newsletter: Newsletter, length: SummaryLength): string {
   const field = (value: string) => defuseTags(value.replace(/\s+/g, " ").trim());
   return [
     `<${TAG}>`,
@@ -42,7 +44,7 @@ export function userMessage(newsletter: Newsletter): string {
     `Subject: ${field(newsletter.subject)}`,
     `Received: ${field(newsletter.receivedAt)}`,
     "",
-    defuseTags(newsletter.text.trim()),
+    defuseTags(trimForSummary(newsletter.text, length)),
     `</${TAG}>`,
   ].join("\n");
 }
@@ -50,6 +52,6 @@ export function userMessage(newsletter: Newsletter): string {
 export function buildSummaryMessages(newsletter: Newsletter, length: SummaryLength): ChatMessage[] {
   return [
     { role: "system", content: systemPrompt(length) },
-    { role: "user", content: userMessage(newsletter) },
+    { role: "user", content: userMessage(newsletter, length) },
   ];
 }

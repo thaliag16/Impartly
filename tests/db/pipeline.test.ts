@@ -145,7 +145,7 @@ describe.skipIf(!databaseUrl)("pipeline for one user, on real Postgres", () => {
     expect(result.connections).toEqual([
       expect.objectContaining({ connectionId: a.connectionId, outcome: "pulled", stored: 5, alreadyStored: 0, storeFailures: 0, newSenders: 3, capped: false }),
     ]);
-    expect(result.summaries).toEqual({ created: 5, failed: 0, deferred: 0 });
+    expect(result.summaries).toEqual({ created: 5, reused: 0, failed: 0, deferred: 0 });
 
     const newsletters = await rows("newsletters", a.id);
     expect(newsletters.map((n) => n.sender_address).sort()).toEqual(EXPECTED_SENDERS);
@@ -193,7 +193,7 @@ describe.skipIf(!databaseUrl)("pipeline for one user, on real Postgres", () => {
     const again = fakeSummarizer();
     const result = await run(a, again);
     expect(result.connections[0]).toMatchObject({ outcome: "pulled", stored: 0, alreadyStored: 5, newSenders: 0 });
-    expect(result.summaries).toEqual({ created: 0, failed: 0, deferred: 0 });
+    expect(result.summaries).toEqual({ created: 0, reused: 0, failed: 0, deferred: 0 });
     expect(again.calls).toHaveLength(0);
     expect(await rows("newsletters", a.id)).toHaveLength(5);
     expect(await rows("summaries", a.id)).toHaveLength(5);
@@ -212,12 +212,12 @@ describe.skipIf(!databaseUrl)("pipeline for one user, on real Postgres", () => {
     const summarizer = fakeSummarizer();
     summarizer.failSubjects.add("Two more evening ferries");
     const first = await run(a, summarizer);
-    expect(first.summaries).toEqual({ created: 4, failed: 1, deferred: 0 });
+    expect(first.summaries).toEqual({ created: 4, reused: 0, failed: 1, deferred: 0 });
     expect(await rows("summaries", a.id)).toHaveLength(4);
 
     const retry = fakeSummarizer();
     const second = await run(a, retry, { now: new Date(NOW.getTime() + 600_000) });
-    expect(second.summaries).toEqual({ created: 1, failed: 0, deferred: 0 });
+    expect(second.summaries).toEqual({ created: 1, reused: 0, failed: 0, deferred: 0 });
     expect(retry.calls.map((c) => c.input.subject)).toEqual(["Two more evening ferries"]);
     expect(await rows("summaries", a.id)).toHaveLength(5);
   });

@@ -14,7 +14,15 @@ on:
   push:
     branches: ["**"]
   # Lets the owner re-run the real summary eval by hand (Actions tab, "Run workflow").
+  # Optionally with another model, to compare score and cost per summary (the eval prints
+  # both) without changing the SUMMARY_MODEL variable the app's settings mirror.
   workflow_dispatch:
+    inputs:
+      summary_model:
+        description: "Optional: a model name to evaluate instead of the SUMMARY_MODEL variable (same endpoint and key)"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -143,6 +151,8 @@ jobs:
   #   variable SUMMARY_BASE_URL  OpenAI-compatible base URL, e.g. https://host/v1
   #   variable SUMMARY_MODEL     model name for that endpoint
   #   variable SUMMARY_REASONING optional: off (default), minimal, low, medium, high, default
+  # A run started by hand may name another model (input summary_model); it replaces
+  # SUMMARY_MODEL for that run only. Passed through the environment, never into a script.
   # Without the secret (including on pull requests from forks) the eval is skipped and the
   # run shows a notice; it neither fails nor reports a score. If the secret is set but a
   # variable is missing, the eval fails and names the missing setting.
@@ -163,7 +173,7 @@ jobs:
       CI: "true"
       SUMMARY_API_KEY: ${{ secrets.SUMMARY_API_KEY }}
       SUMMARY_BASE_URL: ${{ vars.SUMMARY_BASE_URL }}
-      SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
+      SUMMARY_MODEL: ${{ inputs.summary_model || vars.SUMMARY_MODEL }}
       SUMMARY_REASONING: ${{ vars.SUMMARY_REASONING }}
     steps:
       - name: Check out

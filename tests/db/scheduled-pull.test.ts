@@ -353,14 +353,16 @@ describe.skipIf(!databaseUrl)("scheduled pull on real Postgres", () => {
       // 14:45Z: nothing left to fetch, so the summaries run and the delivery is complete.
       expect(await tick(net, "2026-11-23T14:45:00Z", { clock, sum })).toMatchObject({ claimed: 1, completed: 1 });
       expect(feedRequests()).toHaveLength(4);
-      expect(sum.calls).toBe(4);
+      // The four feeds carry the same invented issue: one model call, four summaries (run 27).
+      expect(sum.calls).toBe(1);
+      expect((await q("select count(*)::int as n from public.summaries where user_id = $1", [a])).rows[0].n).toBe(4);
       expect(iso((await schedule(a)).completed_for)).toBe("2026-11-23T15:00:00.000Z");
       expect((await q("select count(*)::int as n from public.newsletters where user_id = $1", [a])).rows[0].n).toBe(4);
 
       // 14:50Z: nobody is due; nothing is fetched or summarized again.
       expect(await tick(net, "2026-11-23T14:50:00Z", { clock, sum })).toMatchObject({ claimed: 0 });
       expect(feedRequests()).toHaveLength(4);
-      expect(sum.calls).toBe(4);
+      expect(sum.calls).toBe(1);
     });
 
     it("a failing feed is retried with backoff until the delivery time, without holding up the rest", async () => {
@@ -421,7 +423,7 @@ describe.skipIf(!databaseUrl)("scheduled pull on real Postgres", () => {
       const fakeRun = async (userId: string) => {
         runs.set(userId, (runs.get(userId) ?? 0) + 1);
         await new Promise((r) => setTimeout(r, 25)); // overlap the two ticks
-        return { userId, sources: [], connections: [], feeds: [], summaries: { created: 0, failed: 0, deferred: 0 }, schedule: { notStarted: 0, summariesNotStarted: 0, retryAt: null } };
+        return { userId, sources: [], connections: [], feeds: [], summaries: { created: 0, reused: 0, failed: 0, deferred: 0 }, schedule: { notStarted: 0, summariesNotStarted: 0, retryAt: null } };
       };
       const c1 = await db.connect();
       const c2 = await db.connect();
