@@ -104,6 +104,8 @@ export async function runDuePulls(deps: DuePullDeps): Promise<DuePullSummary> {
     try {
       const result = await deps.runUser(claim.userId, {
         cycleStart: claim.cycleStartedAt,
+        deliveryAt: claim.dueFor,
+        playableSince: new Date(claim.dueFor.getTime() - deps.leadMinutes * 60_000),
         canStart: (work) => deps.budget.canStart(work),
       });
       ({ outcome, retryAt } = outcomeOf(result, claim.dueFor));

@@ -25,9 +25,15 @@ export const LENGTH_LIMITS: Record<SummaryLength, { minWords: number; maxWords: 
 
 export const SUMMARY_LENGTHS = Object.keys(LENGTH_LIMITS) as SummaryLength[];
 
+export interface SummarizeOptions {
+  length: SummaryLength;
+  /** Called once with this summary's usage, if any request was answered (spend records). */
+  onUsage?: (usage: SummaryUsage) => void;
+}
+
 export interface SummaryProvider {
   /** Returns the spoken-style summary text. */
-  summarize(newsletter: Newsletter, options: { length: SummaryLength }): Promise<string>;
+  summarize(newsletter: Newsletter, options: SummarizeOptions): Promise<string>;
 }
 
 /**
@@ -40,8 +46,17 @@ export interface SummaryProvider {
 export const SUMMARY_REASONING_SETTINGS = ["off", "minimal", "low", "medium", "high", "default"] as const;
 export type SummaryReasoning = (typeof SUMMARY_REASONING_SETTINGS)[number];
 
-/** Token counts for one summary request, as the endpoint reported them (for spend logs). */
+/**
+ * What one summary cost, as the endpoint reported it (for spend records): totals over the
+ * requests it took (a retry with thinking room is a second request). Counts only, no text.
+ */
 export interface SummaryUsage {
+  /** The configured model name (SUMMARY_MODEL), so costs can be compared across models. */
+  model: string;
+  /** Answered requests (HTTP 200) for this summary: 1, or 2 after a retry with room. */
+  requests: number;
+  /** The model thought (reasoning tokens reported, or thinking returned). */
+  thinking: boolean;
   promptTokens: number;
   completionTokens: number;
   /** Thinking tokens, when the endpoint reports them separately (they are billed as output). */

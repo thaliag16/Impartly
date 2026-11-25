@@ -13,7 +13,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isBriefingVoice, type BriefingVoice } from "../speech/pins";
 import { MAX_SPEED, MIN_SPEED, type RenderReport } from "./render-ahead";
-import { checkBriefingBudget, type BriefingBudget, type BudgetFlag } from "./render-budget";
+import { checkBriefingBudget, summarySpend, type BriefingBudget, type BudgetFlag } from "./render-budget";
 
 export const DEVICE_CLASSES = ["mobile", "desktop", "unknown"] as const;
 export type DeviceClass = (typeof DEVICE_CLASSES)[number];
@@ -194,5 +194,9 @@ export async function writeRenderLog(
   if (rows.some((r) => !Number.isFinite(r.audioSeconds + r.renderedAudioSeconds + r.renderSeconds))) {
     return { ok: false, error: "save_failed" };
   }
-  return { ok: true, budget: checkBriefingBudget(rows) };
+  // What this briefing's summaries cost: the pipeline's usage rows for this delivery (own
+  // rows, RLS). Unreadable means unknown, never a failure: the render row is saved.
+  const usage = await client.from("summary_usage").select("cost_usd").eq("delivery_at", row.delivery_at);
+  const spend = usage.error || !Array.isArray(usage.data) ? { costUsd: null } : summarySpend(usage.data as { cost_usd: unknown }[]);
+  return { ok: true, budget: checkBriefingBudget(rows, spend) };
 }

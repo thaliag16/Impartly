@@ -40,8 +40,9 @@ import { SourceAuthError, SourceFetchError, type NewsletterSource, type PullResu
 import type { WebFetcher } from "../sources/web/fetcher";
 import { createPacer, webArchiveSource, type Pacer } from "../sources/web/archive-source";
 import { webFeedSource } from "../sources/web/feed-source";
-import type { Newsletter, SummaryProvider } from "../summarizer/types";
-import type { PipelineConnection, PipelineFeed, PipelineStore } from "./store";
+import { createHash } from "node:crypto";
+import type { Newsletter, SummaryProvider, SummaryUsage } from "../summarizer/types";
+import type { PendingNewsletter, PipelineConnection, PipelineFeed, PipelineStore } from "./store";
 
 export interface PipelineLimits {
   /** Per source (mail connection or web feed) per run. */
@@ -96,6 +97,14 @@ export type ScheduledWork = "mail" | "feed" | "archive" | "summary";
 export interface PipelineSchedule {
   /** Sources pulled at or after this belong to the current cycle and are skipped. */
   cycleStart: Date;
+  /** The delivery this pull is for (recorded with each summary's spend). */
+  deliveryAt?: Date;
+  /**
+   * The start of that delivery's briefing window (delivery minus the pull lead): issues
+   * stored before it are not in the briefing (lib/briefing/load.ts), so they are not
+   * summarized (cost).
+   */
+  playableSince?: Date;
   /** True when there is time left to start (and finish) this kind of work. */
   canStart(work: ScheduledWork): boolean;
 }
@@ -164,10 +173,12 @@ export interface PipelineResult {
   connections: ConnectionResult[];
   feeds: FeedResult[];
   /**
+   * created: summaries written from a model call. reused: summaries written without one,
+   * copied from an issue with identical text (this run or an earlier one).
    * deferred: newsletters left for a later run by the per-run caps. The pending list is
    * read with one row beyond maxSummariesPerRun, so this is a lower bound, not a total.
    */
-  summaries: { created: number; failed: number; deferred: number };
+  summaries: { created: number; reused: number; failed: number; deferred: number };
   /** Scheduled runs only: what is left for a later invocation. */
   schedule?: {
     /** Sources not started for lack of time. */
@@ -177,6 +188,11 @@ export interface PipelineResult {
     /** The earliest time a waiting or just-failed web feed may be retried (ISO), or null. */
     retryAt: string | null;
   };
+}
+
+/** Identical text, case and runs of white space aside (as private.body_key in SQL). */
+function contentKey(text: string): string {
+  return createHash("sha256").update(text.trim().toLowerCase().replace(/\s+/g, " ")).digest("hex");
 }
 
 /** A short, safe label for an error: a known code, or the error's name (never its message). */
@@ -225,7 +241,7 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
     sources: [],
     connections: [],
     feeds: [],
-    summaries: { created: 0, failed: 0, deferred: 0 },
+    summaries: { created: 0, reused: 0, failed: 0, deferred: 0 },
   };
   const windowMs = limits.firstPullWindowHours * 3600_000;
   const schedule = deps.schedule;
@@ -427,17 +443,32 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
   }
 
   // Summaries: everything stored recently without a summary at the user's length,
-  // including newsletters a previous run stored but could not summarize.
+  // including newsletters a previous run stored but could not summarize. Cost rules: an
+  // issue no briefing will play is not summarized (switched-off feeds; on a scheduled pull,
+  // issues stored before this delivery's window), and identical text is summarized once
+  // (copied from an earlier summary in SQL, and shared within this run).
   const length = state.summaryLength;
   const pendingSince = new Date(runStart.getTime() - limits.pendingWindowHours * 3600_000);
+  const storedSince = schedule?.playableSince ?? null;
+  try {
+    result.summaries.reused += await deps.store.reuseSummaries(userId, length, pendingSince, storedSince);
+  } catch {
+    // Copying is a saving, not a requirement: the issues stay pending and are summarized.
+  }
   // Ask for one more than allowed, to know whether anything was deferred.
-  const pending = await deps.store.pendingSummaries(userId, length, pendingSince, limits.maxSummariesPerRun + 1);
+  const pending = await deps.store.pendingSummaries(userId, length, pendingSince, limits.maxSummariesPerRun + 1, storedSince);
+  const groups = new Map<string, PendingNewsletter[]>();
+  for (const n of pending) {
+    const key = contentKey(n.bodyText.slice(0, limits.maxCharsPerNewsletter));
+    groups.set(key, [...(groups.get(key) ?? []), n]);
+  }
   let chars = 0;
   let requested = 0;
-  for (const n of pending) {
+  for (const group of groups.values()) {
+    const n = group[0];
     const text = n.bodyText.slice(0, limits.maxCharsPerNewsletter);
     if (requested >= limits.maxSummariesPerRun || chars + text.length > limits.maxSummaryCharsPerRun) {
-      result.summaries.deferred++;
+      result.summaries.deferred += group.length;
       continue;
     }
     if (schedule && !schedule.canStart("summary")) {
@@ -452,12 +483,31 @@ export async function runPipelineForUser(userId: string, deps: PipelineDeps): Pr
       receivedAt: n.receivedAt,
       text,
     };
+    let usage: SummaryUsage | undefined;
+    let summary = "";
     try {
-      const summary = (await deps.summarizer.summarize(input, { length })).trim();
+      summary = (await deps.summarizer.summarize(input, { length, onUsage: (u) => (usage = u) })).trim();
       if (!summary) throw new Error("EmptySummary");
-      if (await deps.store.saveSummary(userId, n.id, length, summary)) result.summaries.created++;
     } catch {
       result.summaries.failed++;
+    }
+    if (usage) {
+      try {
+        await deps.store.recordUsage(userId, { newsletterId: n.id, deliveryAt: schedule?.deliveryAt ?? null, length, usage });
+      } catch {
+        // The spend record is best effort: losing it never loses the summary.
+      }
+    }
+    if (!summary) continue;
+    for (const [i, m] of group.entries()) {
+      try {
+        if (await deps.store.saveSummary(userId, m.id, length, summary)) {
+          if (i === 0) result.summaries.created++;
+          else result.summaries.reused++;
+        }
+      } catch {
+        result.summaries.failed++;
+      }
     }
   }
 

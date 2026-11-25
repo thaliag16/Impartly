@@ -123,7 +123,18 @@ const TABLES: TableSpec[] = [
       "id, user_id, delivery_at, voice, speed, chars, sentences, rendered, cached, audio_seconds, rendered_audio_seconds, render_seconds, device_class, created_at",
     update: ["render_seconds", 1],
   },
+  {
+    name: "summary_usage",
+    access: "own-read",
+    key: "id",
+    readCols:
+      "id, user_id, newsletter_id, delivery_at, length, model, requests, prompt_units, completion_units, reasoning_units, thinking, cost_usd, created_at",
+    update: ["cost_usd", 0],
+  },
 ];
+
+const SUMMARY_USAGE_INSERT =
+  "insert into public.summary_usage (user_id, newsletter_id, delivery_at, length, model, requests, prompt_units, completion_units, reasoning_units, thinking, cost_usd) values ($1, $2, now(), 'brief', 'invented-model', 1, 400, 60, 0, false, 0.0001)";
 
 const RENDER_LOG_INSERT =
   "insert into public.render_log (user_id, delivery_at, voice, speed, chars, sentences, rendered, cached, audio_seconds, rendered_audio_seconds, render_seconds, device_class) values ($1, now(), 'af_heart', 1, 120, 3, 3, 0, 9.5, 9.5, 2.25, 'mobile')";
@@ -181,6 +192,7 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
         )
       ).rows[0].id;
       ids[label].render_log = (await q(`${RENDER_LOG_INSERT} returning id`, [id])).rows[0].id;
+      ids[label].summary_usage = (await q(`${SUMMARY_USAGE_INSERT} returning id`, [id, ids[label].newsletters])).rows[0].id;
     }
     for (const t of TABLES) rows[t.name] = { A: ids.A[t.name], B: ids.B[t.name] };
 
@@ -207,6 +219,7 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
         [owner, owner === A ? ids.A.newsletters : ids.B.newsletters],
       ],
       render_log: (owner) => [RENDER_LOG_INSERT, [owner]],
+      summary_usage: (owner) => [SUMMARY_USAGE_INSERT, [owner, owner === A ? ids.A.newsletters : ids.B.newsletters]],
     };
   }, 60_000);
 

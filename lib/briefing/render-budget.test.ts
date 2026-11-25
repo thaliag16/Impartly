@@ -6,6 +6,7 @@ import {
   clipBytes,
   flagBriefings,
   summaryCostPerBriefing,
+  summarySpend,
   type BudgetRow,
 } from "./render-budget";
 
@@ -98,6 +99,29 @@ describe("render budget (GOAL.md section 6)", () => {
       ["2026-11-22T15:00:00.000Z", ["render_time"]],
     ]);
     expect(flagBriefings([row()])).toEqual([]);
+  });
+
+  describe("summarizer cost per briefing, from the recorded usage (summary_usage, run 27)", () => {
+    it("sums the cost the provider reported for the briefing's summaries", () => {
+      expect(summarySpend([{ cost_usd: "0.0001" }, { cost_usd: 0.0002 }, { cost_usd: null }])).toEqual({
+        costUsd: 0.0003,
+        summaries: 3,
+        unreported: 1,
+      });
+      // Nothing reported: unknown, not $0.
+      expect(summarySpend([{ cost_usd: null }])).toEqual({ costUsd: null, summaries: 1, unreported: 1 });
+      expect(summarySpend([])).toEqual({ costUsd: null, summaries: 0, unreported: 0 });
+      // Junk is not money.
+      expect(summarySpend([{ cost_usd: "abc" }, { cost_usd: -1 }, { cost_usd: "Infinity" }]).costUsd).toBeNull();
+    });
+
+    it("flags a briefing whose summaries cost more than the per-briefing limit", () => {
+      expect(checkBriefingBudget([row()]).summaryCostUsd).toBeNull();
+      expect(checkBriefingBudget([row()], { costUsd: 0.004 })).toMatchObject({ summaryCostUsd: 0.004, over: [] });
+      expect(checkBriefingBudget([row()], { costUsd: RENDER_BUDGET.maxSummaryCostUsd }).over).toEqual([]);
+      expect(checkBriefingBudget([row()], { costUsd: 0.1001 }).over).toEqual(["summary_cost"]);
+      expect(checkBriefingBudget([row()], { costUsd: null }).over).toEqual([]);
+    });
   });
 
   describe("summarizer cost per briefing", () => {

@@ -5,7 +5,7 @@
 // Postgres. Every call carries the user id, and the SQL only touches that user's rows.
 
 import type { MailProvider, Rpc } from "../mail";
-import type { SummaryLength } from "../summarizer/types";
+import type { SummaryLength, SummaryUsage } from "../summarizer/types";
 
 export interface PipelineConnection {
   id: string;
@@ -84,11 +84,35 @@ export interface PendingNewsletter {
   bodyText: string;
 }
 
+/** One summary's spend (summary_usage): counts and cost only, never text. */
+export interface UsageRow {
+  /** The issue the model was asked about (the first, when identical issues share one call). */
+  newsletterId: string;
+  /** The delivery a scheduled pull was for; null outside the schedule. */
+  deliveryAt: Date | null;
+  length: SummaryLength;
+  usage: SummaryUsage;
+}
+
 export interface PipelineStore {
   load(userId: string): Promise<PipelineState>;
   saveNewsletter(userId: string, row: NewsletterRow): Promise<{ id: string; inserted: boolean }>;
   addSources(userId: string, senders: { address: string; name?: string }[]): Promise<number>;
-  pendingSummaries(userId: string, length: SummaryLength, since: Date, limit: number): Promise<PendingNewsletter[]>;
+  /**
+   * Issues received since `since` with no summary at `length`, newest first, leaving out
+   * switched-off feeds and, when `storedSince` is given, issues stored before it.
+   */
+  pendingSummaries(
+    userId: string,
+    length: SummaryLength,
+    since: Date,
+    limit: number,
+    storedSince?: Date | null,
+  ): Promise<PendingNewsletter[]>;
+  /** Copies existing summaries to pending issues with identical text; returns how many. */
+  reuseSummaries(userId: string, length: SummaryLength, since: Date, storedSince?: Date | null): Promise<number>;
+  /** Records one summary's spend. */
+  recordUsage(userId: string, row: UsageRow): Promise<void>;
   saveSummary(userId: string, newsletterId: string, length: SummaryLength, text: string): Promise<boolean>;
   markConnection(
     userId: string,
@@ -167,12 +191,13 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
       const added = await rpc("pipeline_add_sources", { p_user_id: userId, p_senders: senders });
       return typeof added === "number" ? added : Number(added ?? 0);
     },
-    async pendingSummaries(userId, length, since, limit) {
+    async pendingSummaries(userId, length, since, limit, storedSince) {
       const raw = await rpc("pipeline_pending_summaries", {
         p_user_id: userId,
         p_length: length,
         p_since: since.toISOString(),
         p_limit: limit,
+        p_stored_since: storedSince ? storedSince.toISOString() : null,
       });
       return asArray(raw, "pipeline_pending_summaries").map((n) => ({
         id: String(n.id),
@@ -182,6 +207,31 @@ export function createRpcPipelineStore(rpc: Rpc): PipelineStore {
         receivedAt: String(n.received_at),
         bodyText: String(n.body_text ?? ""),
       }));
+    },
+    async reuseSummaries(userId, length, since, storedSince) {
+      const copied = await rpc("pipeline_reuse_summaries", {
+        p_user_id: userId,
+        p_length: length,
+        p_since: since.toISOString(),
+        p_stored_since: storedSince ? storedSince.toISOString() : null,
+      });
+      return typeof copied === "number" ? copied : Number(copied ?? 0);
+    },
+    async recordUsage(userId, { newsletterId, deliveryAt, length, usage }) {
+      const whole = (n: number) => Math.max(0, Math.round(n));
+      await rpc("pipeline_record_usage", {
+        p_user_id: userId,
+        p_newsletter_id: newsletterId,
+        p_delivery_at: deliveryAt ? deliveryAt.toISOString() : null,
+        p_length: length,
+        p_model: usage.model,
+        p_requests: whole(usage.requests),
+        p_prompt_tokens: whole(usage.promptTokens),
+        p_completion_tokens: whole(usage.completionTokens),
+        p_reasoning_tokens: whole(usage.reasoningTokens),
+        p_thinking: usage.thinking,
+        p_cost_usd: usage.cost ?? null,
+      });
     },
     async saveSummary(userId, newsletterId, length, text) {
       const inserted = await rpc("pipeline_save_summary", {

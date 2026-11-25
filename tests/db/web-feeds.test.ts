@@ -139,7 +139,7 @@ describe.skipIf(!databaseUrl)("web feeds on real Postgres", () => {
     const teaser = stored.find((n) => n.provider_message_id === "id:post-101")!;
     expect(teaser.partial).toBe(true);
 
-    expect(result.summaries).toEqual({ created: 2, failed: 0, deferred: 0 });
+    expect(result.summaries).toEqual({ created: 2, reused: 0, failed: 0, deferred: 0 });
     for (const c of summarizer.calls) expect(c.input.text).not.toMatch(/ignore your previous instructions/i);
 
     const ledgerRow = (await feeds(a)).find((f) => f.feed_url === LEDGER)!;
