@@ -1,6 +1,7 @@
 // Settings: when the briefing is ready (delivery time, every 15 minutes) and in which time
 // zone. The row is read as the signed-in user under RLS; saving goes through the server
-// action in ./actions.ts. Voice, speed and order come with Phase 2.
+// action in ./actions.ts. Voice, speed and newsletter order are on their own linked page
+// (./listening), so each screen keeps one watermelon action.
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -57,6 +58,17 @@ export default async function SettingsPage() {
           Could not load your settings. Reload the page to try again.
         </p>
       )}
+      <section className="px-card" aria-labelledby="listening-heading">
+        <h2 id="listening-heading" className="px-label">
+          How you listen
+        </h2>
+        <p className="px-body">The voice, its speed, and the order your newsletters play in.</p>
+        <div className="px-row">
+          <Link href="/settings/listening" className="px-btn">
+            Voice, speed and order
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

@@ -14,6 +14,8 @@
 //      <article> markup, then conservative same-site links). A page that lists issues is
 //      returned as format "archive" with a preview of the issues found. At most
 //      ARCHIVE_EXTRA_FETCHES more requests per archive page tried, spaced politely.
+//   A catalog entry marked archiveOnly skips steps 2 to 4: its site's feeds are site-wide
+//   articles, not the newsletter, so only its archiveUrl is read.
 // beehiiv-hosted newsletters (platforms.ts): when the first HTML page is a beehiiv page,
 // a link on it to the publication's rss.beehiiv.com feed is tried first among the feeds,
 // and its /archive page (with /sitemap.xml and /p/<slug> issues) before the page itself.
@@ -139,7 +141,8 @@ export async function discoverFeed(
   }
   const homepage = entry ? entry.homepageUrl : null;
 
-  const queue: string[] = [start.toString()];
+  // An archive-only catalog entry: the site's feeds are not this newsletter, so none is tried.
+  const queue: string[] = entry?.archiveOnly ? [] : [start.toString()];
   const tried = new Set<string>();
   let lastError: string | undefined;
   let pageSeen = false;

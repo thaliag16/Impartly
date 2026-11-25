@@ -90,6 +90,7 @@ const NORMAL_PAIRS: [string, string][] = [
   ["mocha-green", "sand"],
   ["mocha-green", "card"],
   ["sand", "mocha-green"],
+  ["sand", "mocha-ink"],
 ];
 const LARGE_TEXT_PAIRS: [string, string][] = [["mocha-ink", "watermelon"]];
 

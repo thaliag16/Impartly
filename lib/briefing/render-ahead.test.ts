@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createFakeRenderer, FAKE_SAMPLE_RATE, fakeToneHz } from "./fake-renderer";
+import { loadClips, MissingClipsError } from "./queue";
 import { assembleBriefing, type BriefingItem } from "./script";
 import {
   cacheApiClipStore,
   clipKey,
   memoryClipStore,
+  pruneClips,
   renderAhead,
+  scriptClipKeys,
   type AudioClip,
   type RenderSentence,
 } from "./render-ahead";
@@ -69,7 +73,21 @@ describe("renderAhead", () => {
     expect(report.renderSeconds).toBeCloseTo(chars * 0.01, 6);
     expect(report.audioSeconds).toBeCloseTo(chars * 0.1, 3);
     expect(report.realTimeFactor).toBeCloseTo(0.1, 3);
+    expect(report.renderedAudioSeconds).toBeCloseTo(chars * 0.1, 3);
     expect(report.characters).toBe(chars);
+  });
+
+  it("reports the newly rendered audio apart from the cached audio (for the render cost log)", async () => {
+    const store = memoryClipStore();
+    const half = { ...script, sentences: script.sentences.slice(0, 2) };
+    await renderAhead(half, { voice: "af_heart", speed: 1, store, render: fakeRenderer().render, subtle });
+    const report = await renderAhead(script, { voice: "af_heart", speed: 1, store, render: fakeRenderer().render, subtle });
+    const cachedChars = half.sentences.reduce((n, s) => n + s.text.length, 0);
+    const allChars = script.sentences.reduce((n, s) => n + s.text.length, 0);
+    expect(report).toMatchObject({ rendered: script.sentences.length - 2, cached: 2 });
+    expect(report.audioSeconds).toBeCloseTo(allChars * 0.1, 3);
+    expect(report.renderedAudioSeconds).toBeCloseTo((allChars - cachedChars) * 0.1, 3);
+    expect(report.renderedAudioSeconds).toBeLessThanOrEqual(report.audioSeconds);
   });
 
   it("renders only what is missing on a second run, and again for another voice or speed", async () => {
@@ -80,7 +98,7 @@ describe("renderAhead", () => {
     const second = fakeRenderer();
     const again = await renderAhead(script, { voice: "af_heart", speed: 1, store, render: second.render, subtle });
     expect(second.calls).toEqual([]);
-    expect(again).toMatchObject({ rendered: 0, cached: script.sentences.length, renderSeconds: 0 });
+    expect(again).toMatchObject({ rendered: 0, cached: script.sentences.length, renderSeconds: 0, renderedAudioSeconds: 0 });
 
     const other = fakeRenderer();
     await renderAhead(script, { voice: "bm_daniel", speed: 1.25, store, render: other.render, subtle });
@@ -143,5 +161,71 @@ describe("cacheApiClipStore", () => {
     // Keys are stored as same-origin-looking URLs, never with sentence text.
     expect([...entries.keys()][0]).toBe(`https://impartly.invalid/audio/${key}`);
     expect(await store.get(key)).toEqual(clip);
+  });
+});
+
+describe("a voice or speed change (run 25)", () => {
+  it("renders every sentence again, and the old clips are pruned so they can never be played", async () => {
+    const store = memoryClipStore();
+    const fake = createFakeRenderer();
+    await renderAhead(script, { voice: "af_heart", speed: 1, store, render: fake.render, subtle });
+    const before = fake.calls.length;
+    await renderAhead(script, { voice: "bm_daniel", speed: 1.5, store, render: fake.render, subtle });
+    // Nothing of the old voice and speed was reused.
+    expect(fake.calls.slice(before)).toHaveLength(script.sentences.length);
+    expect(fake.calls.slice(before).every((c) => c.voice === "bm_daniel" && c.speed === 1.5)).toBe(true);
+
+    const keep = await scriptClipKeys(script, { voice: "bm_daniel", speed: 1.5, subtle });
+    expect(keep.size).toBe(new Set(script.sentences.map((s) => s.text)).size);
+    expect([...keep].every((k) => k.includes("/bm_daniel/1.50/"))).toBe(true);
+    expect(await pruneClips(store, keep)).toBe(keep.size); // the af_heart 1.00 clips
+    await expect(loadClips(script, { store, subtle, voice: "af_heart", speed: 1 })).rejects.toBeInstanceOf(MissingClipsError);
+    const clips = await loadClips(script, { store, subtle, voice: "bm_daniel", speed: 1.5 });
+    expect(clips[0].samples.length).toBe(fake.samplesFor(script.sentences[0].text, 1.5));
+    expect(await pruneClips(store, keep)).toBe(0);
+  });
+
+  it("a store without keys or delete is left alone", async () => {
+    const plain = { get: async () => undefined, put: async () => undefined };
+    expect(await pruneClips(plain, new Set())).toBe(0);
+  });
+
+  it("the stand-in renderer's tone tells the voices apart (UI tests check which voice is playing)", async () => {
+    const fake = createFakeRenderer();
+    const crossings = (samples: Float32Array) => {
+      let n = 0;
+      for (let i = 1; i < samples.length; i++) if (samples[i - 1] < 0 !== samples[i] < 0) n++;
+      return n;
+    };
+    for (const voice of ["af_heart", "bm_daniel"] as const) {
+      const { clip } = await fake.render("A sentence of a fair length for the tone.", voice, 1);
+      const hz = crossings(clip.samples) / 2 / (clip.samples.length / FAKE_SAMPLE_RATE);
+      expect(hz).toBeCloseTo(fakeToneHz(voice), -1);
+    }
+    expect(fakeToneHz("af_heart")).not.toBe(fakeToneHz("bm_daniel"));
+  });
+});
+
+describe("cacheApiClipStore pruning", () => {
+  it("deletes only this store's clips that are not kept", async () => {
+    const entries = new Map<string, Response>();
+    const cache = {
+      match: async (key: string) => entries.get(key)?.clone(),
+      put: async (key: string, response: Response) => void entries.set(key, response),
+      keys: async () => [...entries.keys()].map((url) => new Request(url)),
+      delete: async (key: string | Request) => entries.delete(typeof key === "string" ? key : key.url),
+    };
+    const storage = { open: async () => cache } as unknown as CacheStorage;
+    const store = cacheApiClipStore(storage, "impartly-briefing-audio-v1");
+    const clip: AudioClip = { sampleRate: 24_000, samples: Float32Array.from([0, 0.5]) };
+    const old = "kokoro-v1/af_heart/1.00/" + "0".repeat(64);
+    const kept = "kokoro-v1/bm_daniel/1.50/" + "0".repeat(64);
+    await store.put(old, clip);
+    await store.put(kept, clip);
+    entries.set("https://impartly.invalid/other/thing", new Response("x"));
+    expect(await pruneClips(store, new Set([kept]))).toBe(1);
+    expect(await store.get(old)).toBeUndefined();
+    expect(await store.get(kept)).toEqual(clip);
+    expect(entries.has("https://impartly.invalid/other/thing")).toBe(true);
   });
 });

@@ -14,7 +14,7 @@ import { parse, type DefaultTreeAdapterTypes as T } from "parse5";
 import { SourceFetchError } from "../../lib/sources/types";
 import { extractIssue, isSignInUrl, issueLinksFromSitemap, jsonLdNodes, mainContent, normalizeUrl, pageTitle, parseSitemap, sameSite } from "../../lib/sources/web/archive";
 import { archiveFromPage, createPacer, HTML_ACCEPT, webArchiveSource, type DiscoveredArchive, type Pacer } from "../../lib/sources/web/archive-source";
-import { discoverFeed, type DiscoveryResult } from "../../lib/sources/web/discover";
+import { discoverFeed, feedLinksInHtml, type DiscoveryResult } from "../../lib/sources/web/discover";
 import { createWebFetcher, LIMITS, type WebFetcher } from "../../lib/sources/web/fetcher";
 import { parseFeed } from "../../lib/sources/web/feed-parser";
 import { FEED_ACCEPT, PAYWALL } from "../../lib/sources/web/feed-source";
@@ -35,7 +35,7 @@ const EDITION_HINT = /\b(?:daily|issues?|archives?|newsletters?|editions?|read (
 
 export interface ProbeTarget {
   entry: string;
-  kind: "discover" | "archive" | "sitemap" | "follow" | "issue" | "robots-sitemaps";
+  kind: "discover" | "archive" | "sitemap" | "follow" | "issue" | "robots-sitemaps" | "feeds";
   /** robots-sitemaps only: the path prefix whose entries are counted (e.g. "/issues/"). */
   pathPrefix?: string;
   url: string;
@@ -53,7 +53,15 @@ export const PROBES: ProbeTarget[] = [
   // Newsletter" and "Newsletter" links): the daily email's web edition, one page per issue.
   { entry: "morning-brew", kind: "issue", url: "https://www.morningbrew.com/issues/latest" },
   { entry: "morning-brew", kind: "robots-sitemaps", url: "https://www.morningbrew.com/", pathPrefix: "/issues/" },
+  // Term Sheet's source from Thalia (run 20): Fortune's Term Sheet topic page. The feeds
+  // probe lists only the feeds the page itself advertises (<link rel="alternate">), with
+  // each feed's identity, to see whether a Term Sheet topic feed exists; no feed URL is guessed.
+  { entry: "fortune-term-sheet", kind: "feeds", url: "https://fortune.com/topic/term-sheet/" },
+  { entry: "fortune-term-sheet", kind: "archive", url: "https://fortune.com/topic/term-sheet/" },
 ];
+
+/** Advertised feeds read by a feeds probe. */
+export const MAX_ADVERTISED_FEEDS = 3;
 
 /** Table-safe, short: no pipes or line breaks, at most 120 characters. */
 export function cell(s: string | null | undefined, max = 120): string {
@@ -278,6 +286,24 @@ export async function runProbe(p: ProbeTarget): Promise<string[]> {
       const parsed = res.status === 200 ? parseFeed(res.text, res.url.toString()) : null;
       const items = (parsed?.items ?? []).map((i) => ({ title: i.title, url: i.link ?? "", date: i.published ?? null }));
       return rows(p.entry, "discover", p.url, `${r.feed.format} feed at ${r.feed.feedUrl} (${r.feed.itemCount} items)`, parsed?.title ?? r.feed.title, `${parsed?.siteUrl ?? ""} ${platform}`, items);
+    }
+    if (p.kind === "feeds") {
+      const page = await getPage(fetcher, pacer, p.url);
+      if (page.status !== 200) return rows(p.entry, "advertised feeds", p.url, `http_${page.status} (robots.txt allowed the request)`, "", "", []);
+      const links = feedLinksInHtml(page.text, page.url.toString());
+      const out = rows(p.entry, "advertised feeds", p.url, `page read (robots.txt allows it); ${links.length} feeds advertised`, pageTitle(page.text), "", links.map((u) => ({ title: "(advertised feed)", url: u, date: null })));
+      for (const url of links.slice(0, MAX_ADVERTISED_FEEDS)) {
+        try {
+          await pacer.wait(new URL(url).hostname, PROBE_LIMITS.intervalMs);
+          const res = await fetcher.get(url, { accept: FEED_ACCEPT, maxBytes: LIMITS.feedBytes });
+          const parsed = res.status === 200 ? parseFeed(res.text, res.url.toString()) : null;
+          const items = (parsed?.items ?? []).map((i) => ({ title: i.title, url: i.link ?? "", date: i.published ?? null }));
+          out.push(...rows(p.entry, "advertised feed", url, res.status !== 200 ? `http_${res.status}` : parsed ? `${parsed.format} feed, ${parsed.items.length} items` : "not a feed", parsed?.title ?? "", parsed?.siteUrl ?? "", items));
+        } catch (e) {
+          out.push(...rows(p.entry, "advertised feed", url, code(e), "", "", []));
+        }
+      }
+      return out;
     }
     if (p.kind === "archive") {
       const page = await getPage(fetcher, pacer, p.url);

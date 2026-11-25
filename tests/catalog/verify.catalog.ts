@@ -18,7 +18,8 @@
 // adding a discovered URL to the catalog. Titles are cut to 120 characters; no item text.
 //
 // Source probes (probes.ts) then check candidate public sources for entries that are not
-// settled yet (run 16: StrictlyVC's beehiiv site and Morning Brew's web edition), with the
+// settled yet (run 16: StrictlyVC's beehiiv site and Morning Brew's web edition; run 20: Term
+// Sheet's Fortune topic page and the feeds it advertises), with the
 // same identity columns, and link following capped and kept on the same site.
 //
 // Report only: an unreachable or feedless site does not fail the run (sites change; that

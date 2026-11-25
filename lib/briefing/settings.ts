@@ -32,8 +32,12 @@ export const DEFAULT_LISTEN_SETTINGS: Readonly<ListenSettings> = Object.freeze({
 export const MAX_FEED_ORDER = 200;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Plain decimals only ("1.25"); not "0x1", "1e0" or "Infinity", which Number() would take. */
+const DECIMAL = /^\s*\d+(?:\.\d+)?\s*$/;
+
 function parseSpeed(value: unknown): number | null {
-  const n = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  if (typeof value === "string" && !DECIMAL.test(value)) return null;
+  const n = typeof value === "string" ? Number(value) : value;
   if (typeof n !== "number" || !Number.isFinite(n)) return null;
   const steps = Math.round(n * 20);
   if (Math.abs(steps - n * 20) > 1e-6) return null;
@@ -112,3 +116,62 @@ export async function saveListenSettings(
   }
   return parsed;
 }
+
+// ---- The listening settings screen (app/settings/listening) ------------------------------
+
+/** Every speed the screen offers: 0.50x to 2.00x in 0.05 steps (decided 2026-11-24). */
+export const SPEED_OPTIONS: readonly number[] = Object.freeze(
+  Array.from({ length: Math.round((MAX_SPEED - MIN_SPEED) * 20) + 1 }, (_, i) => (MIN_SPEED * 20 + i) / 20),
+);
+
+export const speedLabel = (speed: number) => `${speed.toFixed(2)}x`;
+
+export const VOICE_LABELS: Readonly<Record<BriefingVoice, string>> = Object.freeze({ af_heart: "Heart", bm_daniel: "Daniel" });
+
+/** The one sentence the voice preview reads. */
+export const previewSentence = (voice: BriefingVoice) =>
+  `This is ${VOICE_LABELS[voice]}, reading your briefing at the speed you picked.`;
+
+export const LISTEN_ERROR_MESSAGES: Readonly<Record<ListenSettingsError | "save_failed" | "signed_out", string>> = Object.freeze({
+  invalid_voice: "Pick one of the two voices.",
+  invalid_speed: "Pick a speed between 0.50x and 2.00x.",
+  invalid_order: "Your newsletters changed since this page opened. Reload the page and try again.",
+  save_failed: "Could not save your settings. Try again.",
+  signed_out: "You were signed out. Sign in again to save.",
+});
+
+export interface OrderableFeed {
+  id: string;
+  title: string;
+  included: boolean;
+}
+
+/** The saved order cut down to the user's current feeds, lower case, once each. */
+export function savedOrderFor(feeds: readonly OrderableFeed[], savedOrder: readonly string[]): string[] {
+  const own = new Set(feeds.map((f) => f.id.toLowerCase()));
+  const out: string[] = [];
+  for (const raw of savedOrder) {
+    const id = raw.toLowerCase();
+    if (own.has(id) && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
+/** The feeds as the screen lists them: the saved order first, then the rest as given. */
+export function orderFeeds<T extends OrderableFeed>(feeds: readonly T[], savedOrder: readonly string[]): T[] {
+  const byId = new Map(feeds.map((f) => [f.id.toLowerCase(), f]));
+  const placed = savedOrderFor(feeds, savedOrder).map((id) => byId.get(id)!);
+  return [...placed, ...feeds.filter((f) => !placed.includes(f))];
+}
+
+/** The order with the item at `index` moved one place; null when it would leave the list. */
+export function moveFeed(order: readonly string[], index: number, delta: -1 | 1): string[] | null {
+  const to = index + delta;
+  if (index < 0 || index >= order.length || to < 0 || to >= order.length) return null;
+  const next = [...order];
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
+}
+
+export const positionAnnouncement = (title: string, index: number, total: number) =>
+  `${title} moved to position ${index + 1} of ${total}.`;

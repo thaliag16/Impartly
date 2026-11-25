@@ -150,8 +150,11 @@
       "aliases": ["Fortune Term Sheet"],
       "homepageUrl": "https://fortune.com/newsletters/termsheet/",
       "feedUrl": null,
+      "archiveUrl": "https://fortune.com/topic/term-sheet/",
+      "archiveOnly": true,
       "verified": false,
-      "note": "Unverified. Discovery finds a Fortune feed (https://fortune.com/feed/fortune-feeds/?id=3230629) from this page, but the live check showed feed title \"Fortune FORTUNE\" and general Fortune articles, not Term Sheet issues, so it is not listed here. May be partly paywalled; anything behind it is not read."
+      "pickerNote": "Fortune marks Term Sheet as for subscribers, so Impartly reads only the public opening of each issue.",
+      "note": "Unverified. archiveUrl is Fortune's Term Sheet topic page (source from Thalia, 2026-11-24), which lists Term Sheet items, each on its own Fortune article page. archiveOnly: the feed Fortune advertises on its pages is general Fortune articles (feed title \"Fortune FORTUNE\" in the live check), not Term Sheet, so discovery never tries feeds for this entry. Fortune may meter or paywall articles; anything behind that is not read and the issue is marked partial. Catalog check run 45427728391 (2026-11-24): robots.txt allows the page; it advertises no feed; it lists 15 issues by JSON-LD (undated, newest 2026/11/24 \"Tech gets Jensen Huang back, but not with a clean slate\", then the 11/23 recap and 11/20 \"Anthropic is now AI's bellwether\"); the newest issue page is NewsArticle with isAccessibleForFree false and its body in the gated .paywall block, so only 181 characters of public text are read, partial. Not verified: no full issue text."
     }
   ]
 }

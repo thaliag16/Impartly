@@ -26,9 +26,11 @@ export function systemPrompt(length: SummaryLength): string {
     "Rules for the summary:",
     `- Between ${minWords} and ${maxWords} words.`,
     "- Lead with the most important news. Keep the key names and numbers exactly as the newsletter gives them.",
+    "- Write numbers, money, percentages and dates in digits, the way the newsletter writes them (for example 1,400, $6, 30%, February 1, 2028). Never spell them out in words.",
+    "- Repeat each number in the newsletter's own terms: do not recompute, convert or restate it in another form.",
     "- Use only facts stated in the newsletter. Add no background, opinion, advice or numbers of your own.",
-    "- Plain sentences meant to be heard: no markdown, headings, bullet points, tables, links, web or email addresses, or emoji.",
-    "- Reply with the summary only, no preamble.",
+    "- Plain sentences meant to be heard, in one single paragraph with no line breaks: no markdown, headings, bullet points, tables, links, web or email addresses, or emoji.",
+    "- Reply with the summary only: no preamble, sign-off, disclaimer or comment about the summary itself.",
   ].join("\n");
 }
 

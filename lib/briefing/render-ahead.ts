@@ -7,8 +7,8 @@
 // Returns a render report (device seconds, audio seconds, characters) for the render
 // cost log (GOAL.md Phase 2, section 6 budget).
 //
-// The renderer is injected: the browser passes one that talks to the Kokoro worker;
-// tests pass a fake.
+// The renderer is injected: the browser passes the Kokoro worker renderer
+// (lib/briefing/worker-renderer.ts); tests pass a fake.
 
 import { sha256Hex } from "../speech/pinned-files";
 import { isBriefingVoice, type BriefingVoice } from "../speech/pins";
@@ -19,16 +19,21 @@ export interface AudioClip {
   samples: Float32Array;
 }
 
-/** Renders one sentence; `seconds` is the wall-clock render time. */
+/** Renders one sentence; `seconds` is the wall-clock render time. An aborted signal
+ * cancels the render (lib/briefing/worker-renderer.ts is the browser's renderer). */
 export type RenderSentence = (
   text: string,
   voice: BriefingVoice,
   speed: number,
+  signal?: AbortSignal,
 ) => Promise<{ clip: AudioClip; seconds: number }>;
 
 export interface ClipStore {
   get(key: string): Promise<AudioClip | undefined>;
   put(key: string, clip: AudioClip): Promise<void>;
+  /** The stored keys (optional: a store without keys and delete is never pruned). */
+  keys?(): Promise<string[]>;
+  delete?(key: string): Promise<void>;
 }
 
 export interface RenderReport {
@@ -42,6 +47,8 @@ export interface RenderReport {
   renderSeconds: number;
   /** Length of the whole briefing's audio, seconds. */
   audioSeconds: number;
+  /** Length of the audio rendered this run (not taken from the store), seconds. */
+  renderedAudioSeconds: number;
   /** renderSeconds / audio seconds of what was rendered this run (0 when nothing was). */
   realTimeFactor: number;
 }
@@ -83,9 +90,9 @@ export async function renderAhead(
     characters: 0,
     renderSeconds: 0,
     audioSeconds: 0,
+    renderedAudioSeconds: 0,
     realTimeFactor: 0,
   };
-  let renderedAudio = 0;
   const total = script.sentences.length;
 
   for (const sentence of script.sentences) {
@@ -97,23 +104,54 @@ export async function renderAhead(
       report.cached++;
       report.audioSeconds += kept.samples.length / kept.sampleRate;
     } else {
-      const { clip, seconds } = await render(sentence.text, voice, speed);
+      const { clip, seconds } = await render(sentence.text, voice, speed, signal);
       await store.put(key, clip);
       const length = clip.samples.length / clip.sampleRate;
       report.rendered++;
       report.renderSeconds += seconds;
       report.audioSeconds += length;
-      renderedAudio += length;
+      report.renderedAudioSeconds += length;
     }
     onProgress?.(report.rendered + report.cached, total);
   }
-  report.realTimeFactor = renderedAudio > 0 ? report.renderSeconds / renderedAudio : 0;
+  report.realTimeFactor = report.renderedAudioSeconds > 0 ? report.renderSeconds / report.renderedAudioSeconds : 0;
   return report;
+}
+
+/** The keys of every clip this script needs in this voice and speed. */
+export async function scriptClipKeys(
+  script: BriefingScript,
+  options: { voice: BriefingVoice; speed: number; subtle: SubtleCrypto },
+): Promise<Set<string>> {
+  const keys = new Set<string>();
+  for (const sentence of script.sentences) keys.add(await clipKey(options.subtle, sentence.text, options.voice, options.speed));
+  return keys;
+}
+
+/**
+ * Deletes every stored clip not in `keep` (the current briefing in the current voice and
+ * speed): clips of an old voice or speed, or of an old briefing, are never played again
+ * (their keys differ), so they only take up the device's storage. Returns how many went.
+ */
+export async function pruneClips(store: ClipStore, keep: ReadonlySet<string>): Promise<number> {
+  if (!store.keys || !store.delete) return 0;
+  let removed = 0;
+  for (const key of await store.keys()) {
+    if (keep.has(key)) continue;
+    await store.delete(key);
+    removed++;
+  }
+  return removed;
 }
 
 export function memoryClipStore(): ClipStore {
   const clips = new Map<string, AudioClip>();
-  return { get: async (key) => clips.get(key), put: async (key, clip) => void clips.set(key, clip) };
+  return {
+    get: async (key) => clips.get(key),
+    put: async (key, clip) => void clips.set(key, clip),
+    keys: async () => [...clips.keys()],
+    delete: async (key) => void clips.delete(key),
+  };
 }
 
 /** Cache Storage needs URL keys; this made-up origin is never fetched. */
@@ -137,6 +175,13 @@ export function cacheApiClipStore(storage: CacheStorage, name: string): ClipStor
           headers: { "content-type": "application/octet-stream", "x-sample-rate": String(clip.sampleRate) },
         }),
       );
+    },
+    async keys() {
+      const requests = await (await storage.open(name)).keys();
+      return requests.map((r) => r.url).filter((url) => url.startsWith(CLIP_URL_PREFIX)).map((url) => url.slice(CLIP_URL_PREFIX.length));
+    },
+    async delete(key) {
+      await (await storage.open(name)).delete(CLIP_URL_PREFIX + key);
     },
   };
 }

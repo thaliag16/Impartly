@@ -29,6 +29,9 @@ const APP_ENV = {
   IMPARTLY_E2E_FAKE_WEB: "1",
   // The scheduled pull route's bearer secret (invented; e2e/cron-pull.e2e.ts).
   CRON_SECRET: "e2e-invented-cron-secret-0123456789abcdef",
+  // /listen renders with the stand-in tone renderer (lib/briefing/fake-renderer.ts), not
+  // Kokoro: no model download in the checks job.
+  IMPARTLY_E2E_FAKE_RENDER: "1",
 };
 
 export default defineConfig({

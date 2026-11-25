@@ -5,10 +5,10 @@
 import { createServer } from "node:http";
 import { createFakeGoTrue } from "../tests/auth/fake-gotrue.mjs";
 import { createFakePostgrest } from "../tests/supabase/fake-postgrest.mjs";
-import { E2E_SECRET_MARKER, E2E_USER } from "./e2e-user.mjs";
+import { E2E_OTHER_USER, E2E_SECRET_MARKER, E2E_USER } from "./e2e-user.mjs";
 
 const port = Number(process.env.FAKE_AUTH_PORT ?? 54329);
-const gotrue = createFakeGoTrue([E2E_USER]);
+const gotrue = createFakeGoTrue([E2E_USER, E2E_OTHER_USER]);
 const postgrest = createFakePostgrest({
   serviceKey: E2E_SECRET_MARKER,
   async userIdForToken(token) {

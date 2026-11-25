@@ -5,8 +5,8 @@ their own licenses. Add a row here whenever one is added.
 
 | Component | Used for | License | Source |
 | --- | --- | --- | --- |
-| Kokoro-82M | Text to speech | Apache 2.0 (weights) | https://huggingface.co/hexgrad/Kokoro-82M |
-| Moonshine Base (English) | Speech to text (`lib/speech/moonshine.ts`); ONNX conversion `onnx-community/moonshine-base-ONNX` at a pinned commit (fp32 encoder, q4 decoder), fetched in CI and never committed | MIT (Moonshine); the conversion repo's license is to be confirmed on Hugging Face | https://github.com/moonshine-ai/moonshine, https://huggingface.co/onnx-community/moonshine-base-ONNX |
+| Kokoro-82M | Text to speech; ONNX conversion `onnx-community/Kokoro-82M-v1.0-ONNX` at a pinned commit (8-bit model), hashes in `scripts/model-pins.json` confirmed by Thalia against Hugging Face on 2026-11-24 | Apache 2.0 (weights) | https://huggingface.co/hexgrad/Kokoro-82M |
+| Moonshine Base (English) | Speech to text (`lib/speech/moonshine.ts`); ONNX conversion `onnx-community/moonshine-base-ONNX` at a pinned commit (fp32 encoder, q4 decoder), fetched in CI and never committed; hashes confirmed by Thalia against Hugging Face on 2026-11-24 | MIT (Moonshine); the conversion repo's license is to be confirmed on Hugging Face | https://github.com/moonshine-ai/moonshine, https://huggingface.co/onnx-community/moonshine-base-ONNX |
 | Next.js | App framework | MIT | https://github.com/vercel/next.js |
 | React | User interface library | MIT | https://github.com/facebook/react |
 | TypeScript | Build-time language tooling | Apache 2.0 | https://github.com/microsoft/TypeScript |
@@ -28,7 +28,7 @@ their own licenses. Add a row here whenever one is added.
 | pg_net (Postgres extension, provided by Supabase) | The tick's HTTP POST to the pull route; not bundled, enabled by the migration | Apache 2.0 | https://github.com/supabase/pg_net |
 | kokoro-js | Runs Kokoro in Node and the browser | Apache 2.0 | https://www.npmjs.com/package/kokoro-js |
 | Transformers.js (@huggingface/transformers 3.8.1, a direct dependency since run 6) | Model loading for kokoro-js and Moonshine | Apache 2.0 | https://github.com/huggingface/transformers.js |
-| ONNX Runtime | Runs ONNX models on CPU | MIT | https://github.com/microsoft/onnxruntime |
+| ONNX Runtime (onnxruntime-node 1.21.0 on the server; onnxruntime-web 1.22.0-dev.20250409-89f8206ba4 in the browser, a direct dependency pinned exactly since run 23, with onnxruntime-common, flatbuffers, guid-typescript, long, platform and protobufjs already present through Transformers.js) | Runs ONNX models on CPU. The browser's WASM runtime files (`ort-wasm-simd-threaded.jsep.mjs` and `.wasm`) are copied from the npm package at build into `public/onnxruntime/<version>/` and served by the app itself, SHA-256 pinned in `scripts/ort-runtime-pins.json` (no CDN) | MIT (flatbuffers and long: Apache 2.0; guid-typescript: ISC; protobufjs: BSD-3-Clause) | https://github.com/microsoft/onnxruntime |
 | phonemizer | Text to phonemes for Kokoro; built on espeak-ng | Apache 2.0 (package); espeak-ng is GPL-3.0, to be confirmed before any release | https://www.npmjs.com/package/phonemizer |
 
 Not yet adopted, under evaluation: WhisperKit, FluidAudio, Parakeet TDT 0.6B v3 (CC-BY-4.0, attribution required).

@@ -142,11 +142,18 @@ jobs:
   #   secret   SUMMARY_API_KEY   key for the summary model's endpoint
   #   variable SUMMARY_BASE_URL  OpenAI-compatible base URL, e.g. https://host/v1
   #   variable SUMMARY_MODEL     model name for that endpoint
-  # Without the secret (including on pull requests from forks) every step after the first
-  # is skipped and the run shows a notice; it neither fails nor reports a score. If the
-  # secret is set but a variable is missing, the eval fails and names the missing setting.
-  # Runs on pull requests and by hand, not on every push, to keep model spend down
-  # (20 short requests per run).
+  #   variable SUMMARY_REASONING optional: off (default), minimal, low, medium, high, default
+  # Without the secret (including on pull requests from forks) the eval is skipped and the
+  # run shows a notice; it neither fails nor reports a score. If the secret is set but a
+  # variable is missing, the eval fails and names the missing setting.
+  # When it runs (decided 2026-11-24, option (b) in PROGRESS.md), to keep model spend down:
+  #   * by hand (Actions tab, "Run workflow"): always;
+  #   * on a pull request: only when the pull request changes a file the score depends on
+  #     (EVAL_PATHS in scripts/summary-eval-gate.sh: the summarizer, the eval code, the fixtures, the eval tests and
+  #     config, this workflow or the gate script), compared with the pull request's base branch;
+  #   * never on a push.
+  # A skipped eval says why, in a notice and in the job summary. If the changed files
+  # cannot be listed, the eval runs (fails safe towards a fresh score).
   summary-eval:
     name: Summary eval (real model, needs SUMMARY_API_KEY)
     if: github.event_name != 'push'
@@ -157,28 +164,35 @@ jobs:
       SUMMARY_API_KEY: ${{ secrets.SUMMARY_API_KEY }}
       SUMMARY_BASE_URL: ${{ vars.SUMMARY_BASE_URL }}
       SUMMARY_MODEL: ${{ vars.SUMMARY_MODEL }}
+      SUMMARY_REASONING: ${{ vars.SUMMARY_REASONING }}
     steps:
-      - name: Skip notice (no SUMMARY_API_KEY secret)
-        if: env.SUMMARY_API_KEY == ''
-        run: echo "::notice title=Summary eval skipped::No SUMMARY_API_KEY secret is set, so no model was evaluated. Add the secret and the SUMMARY_BASE_URL and SUMMARY_MODEL variables to run it."
-
       - name: Check out
-        if: env.SUMMARY_API_KEY != ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history, so the pull request's changes can be listed against its base.
+          fetch-depth: 0
+
+      - name: Decide whether the eval runs
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HAS_KEY: ${{ secrets.SUMMARY_API_KEY != '' }}
+        run: bash scripts/summary-eval-gate.sh
 
       - name: Set up Node
-        if: env.SUMMARY_API_KEY != ''
+        if: steps.gate.outputs.run == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
 
       - name: Install dependencies
-        if: env.SUMMARY_API_KEY != ''
+        if: steps.gate.outputs.run == 'true'
         run: npm ci
 
       - name: Summary eval
-        if: env.SUMMARY_API_KEY != ''
+        if: steps.gate.outputs.run == 'true'
         run: npm run eval:summaries
