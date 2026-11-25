@@ -47,6 +47,8 @@ export interface RenderReport {
   renderSeconds: number;
   /** Length of the whole briefing's audio, seconds. */
   audioSeconds: number;
+  /** Length of the audio rendered this run (not taken from the store), seconds. */
+  renderedAudioSeconds: number;
   /** renderSeconds / audio seconds of what was rendered this run (0 when nothing was). */
   realTimeFactor: number;
 }
@@ -88,9 +90,9 @@ export async function renderAhead(
     characters: 0,
     renderSeconds: 0,
     audioSeconds: 0,
+    renderedAudioSeconds: 0,
     realTimeFactor: 0,
   };
-  let renderedAudio = 0;
   const total = script.sentences.length;
 
   for (const sentence of script.sentences) {
@@ -108,11 +110,11 @@ export async function renderAhead(
       report.rendered++;
       report.renderSeconds += seconds;
       report.audioSeconds += length;
-      renderedAudio += length;
+      report.renderedAudioSeconds += length;
     }
     onProgress?.(report.rendered + report.cached, total);
   }
-  report.realTimeFactor = renderedAudio > 0 ? report.renderSeconds / renderedAudio : 0;
+  report.realTimeFactor = report.renderedAudioSeconds > 0 ? report.renderSeconds / report.renderedAudioSeconds : 0;
   return report;
 }
 

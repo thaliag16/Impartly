@@ -14,12 +14,19 @@
 // The voice and speed chips link to the listening settings (/settings/listening). Stored
 // clips are keyed by text, voice and speed, so a new voice or speed renders the briefing
 // again, and clips this briefing no longer needs are removed after each render.
+//
+// Render cost log (GOAL.md Phase 2): when a render rendered anything, its report goes to the
+// user's own render log (app/listen/actions.ts), which checks the briefing against the
+// budget (lib/briefing/render-budget.ts). Nothing is shown for it: the outcome is only a
+// data attribute on <main> ("ok", "over" or "error"; "none" when nothing was rendered),
+// and a failed log never stops playback.
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFakeRenderer } from "../../lib/briefing/fake-renderer";
 import { BRIEFING_TITLE, createPlayer, type Player, type PlayerState } from "../../lib/briefing/player";
 import { buildQueue, loadClips, waveformLevels, type Timeline } from "../../lib/briefing/queue";
+import { deviceClassHint, renderLogInput, shouldLogRender, type RenderLogOutcome } from "../../lib/briefing/render-log";
 import {
   cacheApiClipStore,
   memoryClipStore,
@@ -37,6 +44,8 @@ import { buildCue } from "../spike/tone";
 const LISTEN_SECONDS = 4;
 const BARS = 40;
 const CLIP_CACHE = "impartly-briefing-audio-v1";
+
+type BudgetState = "pending" | "none" | "ok" | "over" | "error";
 
 type Phase =
   | { kind: "preparing"; done: number; total: number }
@@ -68,12 +77,16 @@ export function PlayerView({
   script,
   voice,
   speed,
+  deliveryAt,
   fakeRenderer,
+  logRender,
 }: {
   script: BriefingScript;
   voice: BriefingVoice;
   speed: number;
+  deliveryAt: string;
   fakeRenderer: boolean;
+  logRender: (input: unknown) => Promise<RenderLogOutcome>;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startCueRef = useRef<HTMLAudioElement | null>(null);
@@ -88,6 +101,7 @@ export function PlayerView({
   const [state, setState] = useState<PlayerState | null>(null);
   const [listening, setListening] = useState<number | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [budget, setBudget] = useState<BudgetState>("pending");
 
   // Render what is missing, build the queue, and attach the player.
   useEffect(() => {
@@ -108,7 +122,7 @@ export function PlayerView({
       }
       const store = typeof caches !== "undefined" ? cacheApiClipStore(caches, CLIP_CACHE) : memoryClipStore();
       const subtle = crypto.subtle;
-      await renderAhead(script, {
+      const report = await renderAhead(script, {
         voice,
         speed,
         store,
@@ -118,6 +132,19 @@ export function PlayerView({
         onProgress: (done, total) => setPhase({ kind: "preparing", done, total }),
       });
       disposeRenderer();
+      // One row in the render cost log per render that rendered something. In the
+      // background: the outcome never holds up or stops playback.
+      if (shouldLogRender(report)) {
+        logRender(renderLogInput(report, deliveryAt, deviceClassHint(navigator as Parameters<typeof deviceClassHint>[0] & Navigator)))
+          .then((out) => {
+            if (!abort.signal.aborted) setBudget(out.ok ? (out.over.length ? "over" : "ok") : "error");
+          })
+          .catch(() => {
+            if (!abort.signal.aborted) setBudget("error");
+          });
+      } else {
+        setBudget("none");
+      }
       // Clips of another voice or speed (or an older briefing) have other keys, so they are
       // never played; remove them so they do not fill the device's storage.
       await pruneClips(store, await scriptClipKeys(script, { voice, speed, subtle })).catch(() => 0);
@@ -157,7 +184,7 @@ export function PlayerView({
       audio.removeAttribute("src");
       if (url) URL.revokeObjectURL(url);
     };
-  }, [script, voice, speed, fakeRenderer]);
+  }, [script, voice, speed, deliveryAt, fakeRenderer, logRender]);
 
   // The Bell cues, built in the browser.
   useEffect(() => {
@@ -290,7 +317,7 @@ export function PlayerView({
   const controlsOff = !ready || isListening;
 
   return (
-    <main className="px-page px-player">
+    <main className="px-page px-player" data-render-budget={budget}>
       <header className="px-header">
         <Link href="/" className="px-btn px-btn-quiet px-square" aria-label="Back to home">
           <BackIcon />

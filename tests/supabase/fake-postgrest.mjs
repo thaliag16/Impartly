@@ -36,6 +36,7 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
   let attempts = new Map(); // user id -> [ms timestamps]
   let newsletters = []; // { id, user_id, feed_id, sender_name, sender_address, subject, partial, received_at, created_at }
   let summaries = []; // { newsletter_id, user_id, length, summary_text, created_at }
+  let renderLog = []; // { id, user_id, delivery_at, voice, speed, chars, ..., device_class, created_at }
   let exhausted = false;
   const calls = [];
 
@@ -45,6 +46,7 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     attempts = new Map();
     newsletters = [];
     summaries = [];
+    renderLog = [];
     exhausted = false;
     calls.length = 0;
   };
@@ -125,7 +127,7 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
       return json(200, { ok: true });
     }
     if (url.pathname === "/__e2e/state" && request.method === "GET") {
-      return json(200, { feeds, settings, calls });
+      return json(200, { feeds, settings, calls, renderLog });
     }
     if (!url.pathname.startsWith("/rest/v1/")) return null;
 
@@ -147,6 +149,12 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
       const userId = await userIdForToken(bearer);
       if (!userId) return json(401, { message: "JWT invalid" });
       return userSettings(request, url, userId);
+    }
+
+    if (url.pathname === "/rest/v1/render_log") {
+      const userId = await userIdForToken(bearer);
+      if (!userId) return json(401, { message: "JWT invalid" });
+      return renderLogRoute(request, url, userId);
     }
 
     if (request.method === "GET") {
@@ -242,14 +250,53 @@ export function createFakePostgrest({ serviceKey, userIdForToken }) {
     return json(405, { message: "not supported by the fake" });
   }
 
+  // render_log (supabase/migrations/20261124190000_render_log.sql): the user reads their own
+  // rows and inserts rows for themselves only; no update or delete. user_id comes from the
+  // token (the column's default, auth.uid()); id and created_at cannot be sent.
+  async function renderLogRoute(request, url, userId) {
+    if (request.method === "GET") return json(200, query(renderLog, url, userId));
+    if (request.method !== "POST") return json(403, { code: "42501", message: "permission denied for table render_log" });
+    const body = await request.json().catch(() => null);
+    const rows = Array.isArray(body) ? body : [body];
+    const fresh = [];
+    for (const r of rows) {
+      if (!r || typeof r !== "object") return json(400, { message: "bad body" });
+      if ("id" in r || "created_at" in r) return json(403, { code: "42501", message: "permission denied for table render_log" });
+      if ("user_id" in r && r.user_id !== userId) {
+        return json(403, { code: "42501", message: "new row violates row-level security policy" });
+      }
+      // The table's checks.
+      const finite = (v) => typeof v === "number" && v >= 0 && v <= 14400;
+      if (
+        !["af_heart", "bm_daniel"].includes(r.voice) ||
+        !(Number(r.speed) >= 0.5 && Number(r.speed) <= 2) ||
+        !["mobile", "desktop", "unknown"].includes(r.device_class) ||
+        !(Number.isInteger(r.sentences) && r.sentences >= 1 && r.rendered >= 1 && r.rendered + r.cached === r.sentences) ||
+        ![r.audio_seconds, r.rendered_audio_seconds, r.render_seconds].every(finite) ||
+        r.rendered_audio_seconds > r.audio_seconds ||
+        typeof r.delivery_at !== "string"
+      ) {
+        return json(400, { code: "23514", message: "check violation" });
+      }
+      fresh.push({ ...r, id: randomUUID(), user_id: userId, created_at: new Date().toISOString() });
+    }
+    renderLog.push(...fresh);
+    return new Response(null, { status: 201 });
+  }
+
   return { handle, reset };
 }
 
-/** The user's own rows (as RLS), with PostgREST's select, `gte` filters, order and limit. */
+/** The user's own rows (as RLS), with PostgREST's select, `gte` and `eq` filters, order and limit. */
 function query(table, url, userId) {
   let rows = table.filter((r) => r.user_id === userId);
   for (const [key, value] of url.searchParams) {
     if (["select", "order", "limit", "offset"].includes(key)) continue;
+    if (value.startsWith("eq.")) {
+      const want = value.slice(3);
+      rows = rows.filter((r) => r[key] !== null && compare(r[key], want) === 0);
+      continue;
+    }
     if (!value.startsWith("gte.")) throw new Error(`filter not supported by the fake: ${key}=${value}`);
     const bound = value.slice(4);
     rows = rows.filter((r) => r[key] !== null && compare(r[key], bound) >= 0);

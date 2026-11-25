@@ -5,6 +5,7 @@
 
 import { redirect } from "next/navigation";
 import { createComponentClient, getComponentUser } from "../../lib/supabase/server";
+import { logRenderAction } from "./actions";
 import { fakeRendererEnabled, loadListenData } from "./data";
 import { PlayerView } from "./player-view";
 
@@ -26,5 +27,14 @@ export default async function ListenPage() {
       </main>
     );
   }
-  return <PlayerView script={data.script} voice={data.voice} speed={data.speed} fakeRenderer={fakeRendererEnabled()} />;
+  return (
+    <PlayerView
+      script={data.script}
+      voice={data.voice}
+      speed={data.speed}
+      deliveryAt={data.deliveryAt}
+      fakeRenderer={fakeRendererEnabled()}
+      logRender={logRenderAction}
+    />
+  );
 }

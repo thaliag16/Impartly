@@ -58,7 +58,9 @@ if (!databaseUrl && !dbRequired) {
 
 // Every table in public. A new table must be added here, with its access rules, or the
 // "exact table list" test fails: no table can slip in without cross-user tests.
-type Access = "own-rw" | "own-read";
+// own-rw: the user reads and writes their own rows. own-read: written by the server only.
+// own-append: the user reads and inserts their own rows, and can never change or delete one.
+type Access = "own-rw" | "own-read" | "own-append";
 interface TableSpec {
   name: string;
   access: Access;
@@ -113,7 +115,18 @@ const TABLES: TableSpec[] = [
     readCols: "id, user_id, newsletter_id, length, summary_text, created_at",
     update: ["summary_text", "changed"],
   },
+  {
+    name: "render_log",
+    access: "own-append",
+    key: "id",
+    readCols:
+      "id, user_id, delivery_at, voice, speed, chars, sentences, rendered, cached, audio_seconds, rendered_audio_seconds, render_seconds, device_class, created_at",
+    update: ["render_seconds", 1],
+  },
 ];
+
+const RENDER_LOG_INSERT =
+  "insert into public.render_log (user_id, delivery_at, voice, speed, chars, sentences, rendered, cached, audio_seconds, rendered_audio_seconds, render_seconds, device_class) values ($1, now(), 'af_heart', 1, 120, 3, 3, 0, 9.5, 9.5, 2.25, 'mobile')";
 
 describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
   let db: TestDatabase;
@@ -167,6 +180,7 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
           [id, ids[label].newsletters],
         )
       ).rows[0].id;
+      ids[label].render_log = (await q(`${RENDER_LOG_INSERT} returning id`, [id])).rows[0].id;
     }
     for (const t of TABLES) rows[t.name] = { A: ids.A[t.name], B: ids.B[t.name] };
 
@@ -192,6 +206,7 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
         "insert into public.summaries (user_id, newsletter_id, length, summary_text) values ($1, $2, 'headline', 'x')",
         [owner, owner === A ? ids.A.newsletters : ids.B.newsletters],
       ],
+      render_log: (owner) => [RENDER_LOG_INSERT, [owner]],
     };
   }, 60_000);
 
@@ -342,7 +357,31 @@ describe.skipIf(!databaseUrl)("supabase migrations: row-level security", () => {
       expect(still.rowCount).toBe(1);
     });
 
-    if (t.access === "own-rw") {
+    if (t.access === "own-append") {
+      it("user A can insert a row for themselves (so the denials above are RLS, not a broken table)", async () => {
+        const [sql, params] = insertFor[t.name](A);
+        await as(db.admin, { kind: "user", id: A }, async (q) => {
+          expect((await q(sql, params)).rowCount).toBe(1);
+          throw new Error("rollback");
+        }).catch((e: Error) => {
+          if (e.message !== "rollback") throw e;
+        });
+      });
+
+      it("is append-only: user A cannot update or delete even their own rows", async () => {
+        const u = await attempt(
+          db.admin,
+          { kind: "user", id: A },
+          `update ${table} set ${t.update[0]} = $1 where ${t.key} = $2`,
+          [t.update[1], rows[t.name].A],
+        );
+        expect(u.error?.code).toBe(RLS_VIOLATION_OR_NO_PRIVILEGE);
+        const d = await attempt(db.admin, { kind: "user", id: A }, `delete from ${table} where ${t.key} = $1`, [
+          rows[t.name].A,
+        ]);
+        expect(d.error?.code).toBe(RLS_VIOLATION_OR_NO_PRIVILEGE);
+      });
+    } else if (t.access === "own-rw") {
       it("user A can update and delete their own row (so the denials above are RLS, not a broken table)", async () => {
         await as(db.admin, { kind: "user", id: A }, async (q) => {
           const u = await q(`update ${table} set ${t.update[0]} = $1 where ${t.key} = $2`, [

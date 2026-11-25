@@ -73,7 +73,21 @@ describe("renderAhead", () => {
     expect(report.renderSeconds).toBeCloseTo(chars * 0.01, 6);
     expect(report.audioSeconds).toBeCloseTo(chars * 0.1, 3);
     expect(report.realTimeFactor).toBeCloseTo(0.1, 3);
+    expect(report.renderedAudioSeconds).toBeCloseTo(chars * 0.1, 3);
     expect(report.characters).toBe(chars);
+  });
+
+  it("reports the newly rendered audio apart from the cached audio (for the render cost log)", async () => {
+    const store = memoryClipStore();
+    const half = { ...script, sentences: script.sentences.slice(0, 2) };
+    await renderAhead(half, { voice: "af_heart", speed: 1, store, render: fakeRenderer().render, subtle });
+    const report = await renderAhead(script, { voice: "af_heart", speed: 1, store, render: fakeRenderer().render, subtle });
+    const cachedChars = half.sentences.reduce((n, s) => n + s.text.length, 0);
+    const allChars = script.sentences.reduce((n, s) => n + s.text.length, 0);
+    expect(report).toMatchObject({ rendered: script.sentences.length - 2, cached: 2 });
+    expect(report.audioSeconds).toBeCloseTo(allChars * 0.1, 3);
+    expect(report.renderedAudioSeconds).toBeCloseTo((allChars - cachedChars) * 0.1, 3);
+    expect(report.renderedAudioSeconds).toBeLessThanOrEqual(report.audioSeconds);
   });
 
   it("renders only what is missing on a second run, and again for another voice or speed", async () => {
@@ -84,7 +98,7 @@ describe("renderAhead", () => {
     const second = fakeRenderer();
     const again = await renderAhead(script, { voice: "af_heart", speed: 1, store, render: second.render, subtle });
     expect(second.calls).toEqual([]);
-    expect(again).toMatchObject({ rendered: 0, cached: script.sentences.length, renderSeconds: 0 });
+    expect(again).toMatchObject({ rendered: 0, cached: script.sentences.length, renderSeconds: 0, renderedAudioSeconds: 0 });
 
     const other = fakeRenderer();
     await renderAhead(script, { voice: "bm_daniel", speed: 1.25, store, render: other.render, subtle });
